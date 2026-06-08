@@ -6,7 +6,7 @@
     "scheme": "ourth",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/HOIPL_Logo.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -20,7 +20,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/adaptive-icon.png",
+        "foregroundImage": "./assets/HOIPL_Logo.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -37,7 +37,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/icon.png",
+          "icon": "./assets/HOIPL_Logo.png",
           "color": "#1a6b5a",
           "sounds": []
         }
@@ -48,6 +48,12 @@
       "eas": {
         "projectId": "0ef9b4cd-dd68-4484-8ac8-558383b0b8ad"
       }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/0ef9b4cd-dd68-4484-8ac8-558383b0b8ad"
     }
   }
 }
