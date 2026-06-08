@@ -21,9 +21,36 @@ import RazorpayCheckout from 'react-native-razorpay';
 import { ShoppingCart, ChevronLeft, Minus, Plus, Heart, ArrowUp, MapPin, ChevronRight } from '@/components/icons';
 import { fixAssetUrl, addressAPI, marketplaceAPI, orderAPI } from '@/lib/api';
 import { useCartStore } from '@/lib/cartStore';
+import { isExpoGo } from '@/lib/pushNotifications';
 import type { CartItem, Address, Product } from '@/lib/types';
 
 const BG_IMAGE = require('../../assets/Frame16.png');
+const RAZORPAY_KEY_ID = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID ?? '';
+
+function getPaymentErrorMessage(err: unknown): string {
+  if (typeof err === 'string') {
+    return err;
+  }
+
+  if (err && typeof err === 'object') {
+    const maybeError = err as { message?: unknown; description?: unknown; code?: unknown };
+    const message = typeof maybeError.message === 'string' && maybeError.message.trim()
+      ? maybeError.message.trim()
+      : typeof maybeError.description === 'string' && maybeError.description.trim()
+        ? maybeError.description.trim()
+        : '';
+
+    if (message) {
+      return message;
+    }
+
+    if (typeof maybeError.code === 'string' && maybeError.code.trim()) {
+      return maybeError.code.trim();
+    }
+  }
+
+  return 'Could not complete payment. Please try again.';
+}
 
 export default function CartScreen() {
   const router = useRouter();
@@ -107,10 +134,19 @@ export default function CartScreen() {
 
     const isCod = selectedPayment === 'cod';
     const paymentLabel = isCod ? 'Cash on Delivery' : 'UPI / Paytm';
+    const isRazorpayModuleReady = typeof (RazorpayCheckout as { open?: unknown })?.open === 'function';
+
+    if (!isCod && (isExpoGo || !isRazorpayModuleReady)) {
+      Alert.alert(
+        'UPI Not Available',
+        'UPI/Paytm requires a development or production build with Razorpay native module. Please install a dev build and try again.',
+      );
+      return;
+    }
 
     Alert.alert(
       'Confirm Order',
-      `Place order for Rs ${cart?.total_amount ?? '0'} (${paymentLabel}) to ${selectedAddress.name}?`,
+      `Place order for ₹${cart?.total_amount ?? '0'} (${paymentLabel}) to ${selectedAddress.name}?`,
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -139,26 +175,44 @@ export default function CartScreen() {
               if (!isCod) {
                 const initiateRes = await orderAPI.initiateRazorpayPayment(createdOrderId);
                 const initiateData = initiateRes.data?.data ?? initiateRes.data;
+                const razorpayKey = initiateData.key ?? RAZORPAY_KEY_ID;
 
-                const razorpayResponse = await RazorpayCheckout.open({
-                  key: initiateData.key,
-                  amount: initiateData.amount,
-                  currency: initiateData.currency,
-                  name: 'Ourth',
-                  description: `Order #${createdOrder.order_number ?? createdOrderId}`,
-                  order_id: initiateData.razorpay_order_id,
-                  prefill: {
-                    contact: selectedAddress.mobile ?? '',
-                    name: selectedAddress.name,
-                  },
-                  theme: { color: '#1a6b5a' },
-                });
+                if (!razorpayKey) {
+                  throw new Error('Razorpay is not configured.');
+                }
 
-                await orderAPI.verifyRazorpayPayment(createdOrderId, {
-                  razorpay_order_id: razorpayResponse.razorpay_order_id ?? initiateData.razorpay_order_id,
-                  razorpay_payment_id: razorpayResponse.razorpay_payment_id,
-                  razorpay_signature: razorpayResponse.razorpay_signature,
-                });
+                let razorpayResponse;
+                try {
+                  razorpayResponse = await RazorpayCheckout.open({
+                    key: razorpayKey,
+                    amount: initiateData.amount,
+                    currency: initiateData.currency,
+                    name: 'Ourth',
+                    description: `Order #${createdOrder.order_number ?? createdOrderId}`,
+                    order_id: initiateData.razorpay_order_id,
+                    prefill: {
+                      contact: selectedAddress.mobile ?? '',
+                      name: selectedAddress.name,
+                    },
+                    theme: { color: '#1a6b5a' },
+                  });
+                } catch (paymentErr) {
+                  const paymentMessage = getPaymentErrorMessage(paymentErr);
+                  if (/cancel|dismiss|back/i.test(paymentMessage)) {
+                    throw new Error('Payment cancelled by user.');
+                  }
+                  throw new Error(paymentMessage);
+                }
+
+                try {
+                  await orderAPI.verifyRazorpayPayment(createdOrderId, {
+                    razorpay_order_id: razorpayResponse.razorpay_order_id ?? initiateData.razorpay_order_id,
+                    razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+                    razorpay_signature: razorpayResponse.razorpay_signature,
+                  });
+                } catch (verifyErr) {
+                  throw new Error(`Payment verification failed: ${getPaymentErrorMessage(verifyErr)}`);
+                }
               }
 
               await clearCart();
@@ -168,9 +222,16 @@ export default function CartScreen() {
               const msg = err instanceof Error ? err.message : 'Could not place order. Please try again.';
 
               if (!isCod && createdOrderId) {
+                if (msg === 'Payment cancelled by user.') {
+                  Alert.alert('Payment Cancelled', 'You closed the Razorpay checkout before completing payment.', [
+                    { text: 'OK', onPress: () => router.replace('/(tabs)/orders') },
+                  ]);
+                  return;
+                }
+
                 Alert.alert(
-                  'Payment Incomplete',
-                  'Order was created, but online payment was not completed. You can retry from your Orders screen.',
+                  'Payment Failed',
+                  msg,
                   [
                     { text: 'OK', onPress: () => router.replace('/(tabs)/orders') },
                   ],
@@ -281,7 +342,7 @@ export default function CartScreen() {
                               <Plus size={12} color="#374151" />
                             </TouchableOpacity>
                           </View>
-                          <Text style={styles.itemPrice}>{unitPrice} Rs</Text>
+                          <Text style={styles.itemPrice}>₹{unitPrice}</Text>
                         </View>
                       </View>
                       {idx < items.length - 1 && <View style={styles.divider} />}
@@ -328,7 +389,7 @@ export default function CartScreen() {
                             </View>
                           )}
                           <Text style={styles.suggestName} numberOfLines={1}>{prod.name}</Text>
-                          <Text style={styles.suggestPrice}>{Math.round(price)} Rs</Text>
+                          <Text style={styles.suggestPrice}>₹{Math.round(price)}</Text>
                         </View>
                         <TouchableOpacity style={styles.suggestAddBtn} activeOpacity={0.8}>
                           <Text style={styles.suggestAddBtnText}>ADD</Text>
@@ -353,7 +414,7 @@ export default function CartScreen() {
                 <Text style={styles.billingTitle}>Billing Details</Text>
                 <View style={styles.billingRow}>
                   <Text style={styles.billingLabel}>Sub Total</Text>
-                  <Text style={styles.billingValue}>Rs {subtotal.toFixed(2)}</Text>
+                  <Text style={styles.billingValue}>₹{subtotal.toFixed(2)}</Text>
                 </View>
                 <View style={styles.billingRow}>
                   <Text style={styles.billingLabel}>Delivery Charges</Text>
@@ -361,12 +422,12 @@ export default function CartScreen() {
                 </View>
                 <View style={styles.billingRow}>
                   <Text style={styles.billingLabel}>Discount</Text>
-                  <Text style={[styles.billingValue, styles.discountText]}>— Rs 0.00</Text>
+                  <Text style={[styles.billingValue, styles.discountText]}>— ₹0.00</Text>
                 </View>
                 <View style={styles.billingDivider} />
                 <View style={styles.billingRow}>
                   <Text style={styles.billingTotalLabel}>Total Amount</Text>
-                  <Text style={styles.billingTotalValue}>Rs {total}</Text>
+                  <Text style={styles.billingTotalValue}>₹{total}</Text>
                 </View>
               </View>
 
@@ -506,7 +567,7 @@ export default function CartScreen() {
                   {placing ? (
                     <ActivityIndicator size="small" color="#fff" />
                   ) : (
-                    <Text style={styles.placeOrderText}>Rs {total}  Place Order</Text>
+                    <Text style={styles.placeOrderText}>₹{total}  Place Order</Text>
                   )}
                 </TouchableOpacity>
               </View>

@@ -14,6 +14,7 @@ import {
   StatusBar,
   Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/lib/store';
 
@@ -27,6 +28,7 @@ const BACK_SHAPE = require('../../assets/back_register.png');
 
 export default function ConsumerLoginScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { login } = useAuthStore();
 
   const [email,    setEmail]    = useState('');
@@ -55,7 +57,7 @@ export default function ConsumerLoginScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       {/* ── Header ── */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
           <Image source={BACK_SHAPE} style={styles.backBtnShape} resizeMode="cover" />
           <Image source={BACK} style={styles.backBtnImg} resizeMode="contain" />
@@ -65,10 +67,10 @@ export default function ConsumerLoginScreen() {
 
       <KeyboardAvoidingView
         style={styles.kvFlex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
       >
-        <View style={styles.formWrap}>
+        <View style={[styles.formWrap, { paddingBottom: Math.max(insets.bottom + 20, 28) }] }>
           <View style={styles.fieldWrap}>
             <Text style={styles.label}>Email Address</Text>
             <TextInput
@@ -133,7 +135,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection:     'row',
     alignItems:        'center',
-    marginTop:         30 * SY,
+    paddingBottom:     6,
     paddingHorizontal: 18 * SX,
     gap:               12 * SX,
   },
@@ -176,7 +178,7 @@ const styles = StyleSheet.create({
     paddingLeft: 8 * SX,
   },
   input: {
-    height:            34 * SY,
+    height:            46,
     borderRadius:      10,
     paddingHorizontal: 12 * SX,
     fontSize:          18 * SX,

@@ -488,30 +488,30 @@ export default function OrderTrackingScreen() {
 
             <View style={styles.billingRow}>
               <Text style={styles.billingLabel}>Items Total</Text>
-              <Text style={styles.billingValue}>{subtotal.toFixed(0)}</Text>
+              <Text style={styles.billingValue}>₹{subtotal.toFixed(0)}</Text>
             </View>
             {taxAmount > 0 && (
               <View style={styles.billingRow}>
                 <Text style={styles.billingLabel}>Tax / GST</Text>
-                <Text style={styles.billingValue}>{taxAmount.toFixed(0)}</Text>
+                <Text style={styles.billingValue}>₹{taxAmount.toFixed(0)}</Text>
               </View>
             )}
             <View style={styles.billingRow}>
               <Text style={styles.billingLabel}>Delivery Charge</Text>
-              <Text style={styles.billingValue}>{deliveryCharge.toFixed(0)}</Text>
+              <Text style={styles.billingValue}>₹{deliveryCharge.toFixed(0)}</Text>
             </View>
             {discountAmount > 0 && (
               <View style={styles.billingRow}>
                 <Text style={styles.billingLabel}>Discount</Text>
                 <Text style={[styles.billingValue, { color: '#16a34a' }]}>
-                  -{discountAmount.toFixed(0)}
+                  -₹{discountAmount.toFixed(0)}
                 </Text>
               </View>
             )}
             <View style={styles.divider} />
             <View style={styles.billingRow}>
               <Text style={styles.grandTotalLabel}>Grand Total</Text>
-              <Text style={styles.grandTotalValue}>{grandTotal.toFixed(0)}</Text>
+              <Text style={styles.grandTotalValue}>₹{grandTotal.toFixed(0)}</Text>
             </View>
           </View>
         )}

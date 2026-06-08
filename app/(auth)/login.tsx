@@ -7,6 +7,7 @@ import {
   TextInput,
   TouchableOpacity,
   KeyboardAvoidingView,
+  ScrollView,
   Platform,
   ActivityIndicator,
   Alert,
@@ -14,15 +15,15 @@ import {
   StatusBar,
   Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/lib/store';
 import api from '@/lib/api';
 import * as SecureStore from 'expo-secure-store';
 import { TOKEN_KEY, VENDOR_ID_KEY, VENDOR_CODE_KEY } from '@/lib/api';
 
-const { width: W, height: H } = Dimensions.get('window');
+const { width: W } = Dimensions.get('window');
 const SX = W / 360;
-const SY = H / 640;
 
 const BG        = require('../../assets/Registers.png');
 const BACK      = require('../../assets/back.png');
@@ -30,7 +31,7 @@ const BACK_SHAPE = require('../../assets/back_register.png');
 
 export default function LoginScreen() {
   const router  = useRouter();
-  const { setUser } = useAuthStore();
+  const insets = useSafeAreaInsets();
 
   const [identifier, setIdentifier] = useState('');
   const [password,    setPassword]   = useState('');
@@ -56,7 +57,8 @@ export default function LoginScreen() {
         await SecureStore.setItemAsync(VENDOR_ID_KEY, String(data.data.user.vendor_id));
       }
       // Manually hydrate the auth store so the root layout redirects to tabs
-      useAuthStore.setState({ token: data.data.token, user: data.data.user });
+      useAuthStore.setState({ token: data.data.token, user: data.data.user, isLoading: false });
+      router.replace('/(tabs)');
     } catch (err: unknown) {
       Alert.alert('Login Failed', err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
@@ -69,7 +71,7 @@ export default function LoginScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       {/* ── Header ── */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
           <Image source={BACK_SHAPE} style={styles.backBtnShape} resizeMode="cover" />
           <Image source={BACK} style={styles.backBtnImg} resizeMode="contain" />
@@ -80,10 +82,14 @@ export default function LoginScreen() {
       {/* ── Form ── */}
       <KeyboardAvoidingView
         style={styles.kvFlex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
       >
-        <View style={styles.formWrap}>
+        <ScrollView
+          contentContainerStyle={[styles.formWrap, { paddingBottom: Math.max(insets.bottom + 20, 32) }]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
           {/* Phone / Vendor ID */}
           <Text style={styles.label}>Phone / Vendor ID</Text>
           <TextInput
@@ -98,7 +104,7 @@ export default function LoginScreen() {
           />
 
           {/* Password */}
-          <Text style={[styles.label, { marginTop: 18 * SY }]}>Password</Text>
+          <Text style={[styles.label, { marginTop: 16 }]}>Password</Text>
           <TextInput
             style={styles.input}
             value={password}
@@ -121,7 +127,7 @@ export default function LoginScreen() {
               <Text style={styles.proceedText}>Proceed</Text>
             )}
           </TouchableOpacity>
-        </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </ImageBackground>
   );
@@ -137,7 +143,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginTop: 48 * SY,
+    paddingBottom: 8,
     paddingHorizontal: 18 * SX,
     gap: 12 * SX,
   },
@@ -168,10 +174,8 @@ const styles = StyleSheet.create({
   // ── Form ──
   kvFlex: { flex: 1 },
   formWrap: {
-    flex: 1,
     paddingHorizontal: 22 * SX,
-    justifyContent:    'center',
-    paddingBottom:     150 * SY,
+    paddingTop: 24,
   },
   label: {
     fontSize:   20 * SX,
@@ -181,7 +185,7 @@ const styles = StyleSheet.create({
     paddingLeft: 8 * SX,
   },
   input: {
-    height:            34 * SY,
+    height:            46,
     borderRadius:      10,
     paddingHorizontal: 14 * SX,
     fontSize:          18 * SX,
@@ -203,7 +207,7 @@ const styles = StyleSheet.create({
 
   // ── Proceed button ──
   proceedBtn: {
-    height:          50 * SY,
+    height:          50,
     width:           200 * SX,
     alignSelf:       'center',
     borderRadius:    12,
@@ -211,7 +215,7 @@ const styles = StyleSheet.create({
     borderWidth:     1,
     alignItems:      'center',
     justifyContent:  'center',
-    marginTop:       50 * SY,
+    marginTop:       32,
     shadowColor:     '#000',
     shadowOffset:    { width: 0, height: 4 },
     shadowOpacity:   0.15,

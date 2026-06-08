@@ -20,6 +20,7 @@ import { marketplaceAPI, fixAssetUrl } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { useCollectionsStore } from '@/lib/collectionsStore';
 import { useCartStore } from '@/lib/cartStore';
+import CartSuccessModal from '@/components/ui/CartSuccessModal';
 import type { Category, Product } from '@/lib/types';
 
 const BG_IMAGE = require('../../assets/Frame16.png');
@@ -34,7 +35,7 @@ export default function HomeScreen() {
   const handleAddToCart = useCallback(async (item: Product) => {
     try {
       await addItem(item.id);
-      Alert.alert('Added to cart', `${item.name} has been added to your cart.`);
+      setAddedProductName(item.name);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not add item.';
       Alert.alert('Error', msg);
@@ -48,6 +49,7 @@ export default function HomeScreen() {
   const [activeCat, setActiveCat]   = useState<number | null>(null);
   const [page, setPage]             = useState(1);
   const [hasMore, setHasMore]       = useState(true);
+  const [addedProductName, setAddedProductName] = useState('');
   const loadCategories = useCallback(async () => {
     try {
       const res = await marketplaceAPI.getCategories();
@@ -132,7 +134,7 @@ export default function HomeScreen() {
           {rating != null && (
             <Text style={styles.productRating}>{rating.toFixed(1)}</Text>
           )}
-          <Text style={styles.productPrice}>{Math.round(price)} Rs</Text>
+          <Text style={styles.productPrice}>₹{Math.round(price)}</Text>
         </View>
         {/* ADD button — overlaps bottom-right corner */}
         <TouchableOpacity
@@ -246,6 +248,12 @@ export default function HomeScreen() {
             }
           />
         )}
+
+        <CartSuccessModal
+          visible={Boolean(addedProductName)}
+          productName={addedProductName}
+          onClose={() => setAddedProductName('')}
+        />
 
       </SafeAreaView>
     </ImageBackground>

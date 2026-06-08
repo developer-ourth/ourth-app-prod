@@ -2,6 +2,7 @@
   "expo": {
     "name": "ourth-mobile",
     "slug": "ourth-mobile",
+    "owner": "sahilbhargava.dev",
     "scheme": "ourth",
     "version": "1.0.0",
     "orientation": "portrait",

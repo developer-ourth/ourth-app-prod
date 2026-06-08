@@ -148,7 +148,7 @@ export default function RewardsScreen() {
             )}
             ListEmptyComponent={
               <View style={styles.empty}>
-                <Leaf size={48} color="#d1d5db" />
+                <Leaf size={48} color="#000000" />
                 <Text style={styles.emptyTitle}>No transactions yet</Text>
               </View>
             }
@@ -280,5 +280,5 @@ const styles = StyleSheet.create({
 
   // Empty
   empty:                { marginTop: 80, alignItems: 'center' },
-  emptyTitle:           { marginTop: 12, fontSize: 16, fontWeight: '500', color: '#374151' },
+  emptyTitle:           { marginTop: 12, fontSize: 16, fontWeight: '500', color: '#1A5C2E' },
 });

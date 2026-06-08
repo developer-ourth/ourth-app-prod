@@ -5,7 +5,7 @@ import * as SecureStore from 'expo-secure-store';
 // For Android emulator use http://10.0.2.2:8000/api/v1 (php artisan serve on port 8000)
 // For a physical device or production use your server's HTTPS URL.
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? 'https://ourth-backend-main-iy7ue4.laravel.cloud/api/v1';
+  process.env.EXPO_PUBLIC_API_URL ?? 'https://ourth-bcakend-prod-main-mzfsy0.laravel.cloud/api/v1';
 
 /**
  * Rewrites any asset URL that points to "localhost" so it works on the

@@ -38,9 +38,14 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
         set({ isLoading: false });
       }
     } catch {
-      // Token invalid/expired — clear it
-      await SecureStore.deleteItemAsync(TOKEN_KEY);
-      set({ token: null, user: null, isLoading: false });
+      // Token invalid/expired — clear it, unless a fresh login already populated state.
+      const currentToken = get().token;
+      if (!currentToken) {
+        await SecureStore.deleteItemAsync(TOKEN_KEY);
+        set({ token: null, user: null, isLoading: false });
+      } else {
+        set({ isLoading: false });
+      }
     }
   },
 

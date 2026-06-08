@@ -1,5 +1,6 @@
 import { View, Text, TouchableOpacity, Platform, StyleSheet } from 'react-native';
 import { useRouter, usePathname } from 'expo-router';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Tag, ShoppingBag, ShoppingCart, Heart, Star, Bell } from '@/components/icons';
 
 type AnyIcon = React.ComponentType<{ size: number; color: string }>;
@@ -28,9 +29,20 @@ type Props = {
 export default function BottomTabBar({ activeTab }: Props) {
   const router   = useRouter();
   const pathname = usePathname();
+  const insets = useSafeAreaInsets();
+
+  const bottomInset = insets.bottom;
+
+  const containerStyle = [
+    styles.container,
+    {
+      paddingBottom: bottomInset,
+      height: 58 + bottomInset,
+    },
+  ];
 
   return (
-    <View style={styles.container}>
+    <View style={containerStyle}>
       {TABS.map((tab) => {
         const isActive = activeTab
           ? tab.name === activeTab
@@ -58,9 +70,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderTopWidth: 1,
     borderTopColor: '#f3f4f6',
-    paddingBottom: Platform.OS === 'ios' ? 20 : 6,
-    paddingTop: 6,
-    height: Platform.OS === 'ios' ? 82 : 60,
+    paddingTop: Platform.OS === 'ios' ? 6 : 8,
   },
   tab: {
     flex: 1,

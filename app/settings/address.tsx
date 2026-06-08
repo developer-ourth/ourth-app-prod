@@ -156,7 +156,7 @@ export default function AddressBookScreen() {
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#1e3a5f" style={{ marginTop: 40 }} />
+          <ActivityIndicator size="large" color="#4A9B5F" style={{ marginTop: 40 }} />
         ) : addresses.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Text style={styles.emptyText}>No saved addresses yet.</Text>
@@ -312,7 +312,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#1e3a5f',
+    backgroundColor: '#4A9B5F',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -325,7 +325,7 @@ const styles = StyleSheet.create({
   addBtn: {
     paddingVertical: 10,
     paddingHorizontal: 24,
-    backgroundColor: '#4a5381',
+    backgroundColor: '#4A9B5F',
     borderRadius: 8,
   },
   addBtnText: { color: '#fff', fontWeight: '600', fontSize: 15 },
@@ -344,7 +344,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  itemName: { fontSize: 15, fontWeight: '600', color: '#1e3a5f', flex: 1 },
+  itemName: { fontSize: 15, fontWeight: '600', color: '#4A9B5F', flex: 1 },
 
   expandedContent: { paddingHorizontal: 16, paddingBottom: 14, gap: 6 },
   addressText: { fontSize: 13, color: '#374151', lineHeight: 20 },
@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
     paddingBottom: 28,
     maxHeight: '90%',
   },
-  modalTitle: { fontSize: 18, fontWeight: '700', color: '#1e3a5f', marginBottom: 16 },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#4A9B5F', marginBottom: 16 },
 
   fieldGroup: { marginBottom: 12 },
   fieldLabel: { fontSize: 12, fontWeight: '600', color: '#374151', marginBottom: 4 },
@@ -409,7 +409,7 @@ const styles = StyleSheet.create({
     borderColor: '#9ca3af',
     backgroundColor: '#fff',
   },
-  checkboxChecked: { backgroundColor: '#1e3a5f', borderColor: '#1e3a5f' },
+  checkboxChecked: { backgroundColor: '#4A9B5F', borderColor: '#4A9B5F' },
   defaultLabel: { fontSize: 13, color: '#374151' },
 
   modalActions: { flexDirection: 'row', gap: 12, marginTop: 4 },
@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
     flex: 2,
     paddingVertical: 12,
     borderRadius: 8,
-    backgroundColor: '#1e3a5f',
+    backgroundColor: '#4A9B5F',
     alignItems: 'center',
   },
   saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },

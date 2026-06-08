@@ -15,6 +15,7 @@ import {
   StatusBar,
   Dimensions,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/lib/store';
 
@@ -28,6 +29,7 @@ const BACK_SHAPE = require('../../assets/back_register.png');
 
 export default function ConsumerRegisterScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { register } = useAuthStore();
 
   const [name,     setName]     = useState('');
@@ -68,7 +70,7 @@ export default function ConsumerRegisterScreen() {
       <StatusBar barStyle="dark-content" backgroundColor="transparent" translucent />
 
       {/* ── Header ── */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: insets.top + 8 }]}>
         <TouchableOpacity style={styles.backBtn} onPress={() => router.back()} activeOpacity={0.8}>
           <Image source={BACK_SHAPE} style={styles.backBtnShape} resizeMode="cover" />
           <Image source={BACK} style={styles.backBtnImg} resizeMode="contain" />
@@ -79,12 +81,12 @@ export default function ConsumerRegisterScreen() {
       {/* ── Scrollable form ── */}
       <KeyboardAvoidingView
         style={styles.kvFlex}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
       >
         <ScrollView
           style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: Math.max(insets.bottom + 20, 28) }]}
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
@@ -186,7 +188,7 @@ const styles = StyleSheet.create({
   header: {
     flexDirection:   'row',
     alignItems:      'center',
-    marginTop:       30 * SY,
+    paddingBottom:   6,
     paddingHorizontal: 18 * SX,
     gap:             12 * SX,
   },
@@ -230,7 +232,7 @@ const styles = StyleSheet.create({
     paddingLeft: 8 * SX,
   },
   input: {
-    height:            34 * SY,
+    height:            46,
     borderRadius:      10,
     paddingHorizontal: 12 * SX,
     fontSize:          18 * SX,

@@ -1,9 +1,10 @@
 ﻿import { useState, useEffect, useRef, useCallback } from 'react';
-import { View, Text, Image, ScrollView, TouchableOpacity, ActivityIndicator, ImageBackground, StyleSheet, Dimensions, Animated, Alert } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { View, Text, Image, TouchableOpacity, ActivityIndicator, ImageBackground, StyleSheet, Dimensions, Animated, Alert, ScrollView } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { ChevronLeft, Heart, ShoppingCart } from '@/components/icons';
 import BottomTabBar from '@/components/ui/BottomTabBar';
+import CartSuccessModal from '@/components/ui/CartSuccessModal';
 import { marketplaceAPI, fixAssetUrl } from '@/lib/api';
 import { useCartStore } from '@/lib/cartStore';
 import { useCollectionsStore } from '@/lib/collectionsStore';
@@ -12,6 +13,7 @@ import type { Product } from '@/lib/types';
 const BG_IMAGE = require('../../assets/Frame16.png');
 const { width: W, height: H } = Dimensions.get('window');
 const CARD_W = Math.floor((W - 48) / 3);
+const HERO_FRAME_W = W * 0.78;
 
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -21,18 +23,21 @@ export default function ProductDetailScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState('');
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
+  const [addedProductName, setAddedProductName] = useState('');
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
 
   const { liked: likedMap, toggle } = useCollectionsStore();
   const isLiked = product ? Boolean(likedMap[product.id]) : false;
 
   const { addItem, addingProductId } = useCartStore();
   const isAddingToCart = product ? addingProductId === product.id : false;
+  const insets = useSafeAreaInsets();
 
   const handleAddToCart = useCallback(async () => {
     if (!product) { return; }
     try {
       await addItem(product.id);
-      Alert.alert('Added to cart', `${product.name} has been added to your cart.`);
+      setAddedProductName(product.name);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not add item.';
       Alert.alert('Error', msg);
@@ -68,7 +73,7 @@ export default function ProductDetailScreen() {
         const prod: Product = res.data.data ?? res.data;
         setProduct(prod);
 
-        const related = await marketplaceAPI.getProducts({ category_id: prod.category_id, per_page: 6 });
+        const related = await marketplaceAPI.getProducts({ category_id: prod.category_id ?? undefined, per_page: 6 });
         const items: Product[] = related.data.data ?? related.data;
         setRelatedProducts(items.filter((p: Product) => p.id !== prod.id));
       } catch {
@@ -104,6 +109,13 @@ export default function ProductDetailScreen() {
     : null;
 
   const price = product.discounted_price ?? product.base_price ?? 0;
+  const imageUrls = Array.from(
+    new Set(
+      [product.primary_image_url, ...(product.secondary_images ?? [])]
+        .filter((url): url is string => Boolean(url && url.trim()))
+        .map((url) => fixAssetUrl(url)),
+    ),
+  );
 
   return (
     <ImageBackground source={BG_IMAGE} style={styles.screen} resizeMode="cover">
@@ -120,21 +132,45 @@ export default function ProductDetailScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Scrollable content — image is first item so scale animation runs in same native subtree */}
-        <Animated.ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: 150 }}
-          showsVerticalScrollIndicator={false}
-          onScroll={Animated.event(
-            [{ nativeEvent: { contentOffset: { y: scrollY } } }],
-            { useNativeDriver: true },
-          )}
-          scrollEventThrottle={16}
-        >
-          {/* Hero image — inside scroll so native driver can drive the scale */}
+        <View style={styles.contentWrap}>
+          {/* Hero image stays fixed; only scale changes with scroll */}
           <View style={styles.imageArea}>
-            <Animated.View style={{ transform: [{ scale: imageScale }], width: W * 0.78, height: '100%' }}>
-              {imageUri ? (
+            <Animated.View style={{ transform: [{ scale: imageScale }], width: HERO_FRAME_W, height: '100%' }}>
+              {imageUrls.length > 0 ? (
+                <>
+                  <ScrollView
+                    horizontal
+                    pagingEnabled
+                    bounces={false}
+                    showsHorizontalScrollIndicator={false}
+                    decelerationRate="fast"
+                    onMomentumScrollEnd={(event) => {
+                      const offsetX = event.nativeEvent.contentOffset.x;
+                      const nextIndex = Math.round(offsetX / HERO_FRAME_W);
+                      setActiveImageIndex(nextIndex);
+                    }}
+                    style={styles.heroCarousel}
+                    contentContainerStyle={styles.heroCarouselContent}
+                  >
+                    {imageUrls.map((uri, index) => (
+                      <View key={`${uri}-${index}`} style={styles.heroSlide}>
+                        <Image source={{ uri }} style={styles.heroImage} resizeMode="contain" />
+                      </View>
+                    ))}
+                  </ScrollView>
+
+                  {imageUrls.length > 1 && (
+                    <View style={styles.paginationRow}>
+                      {imageUrls.map((_, index) => (
+                        <View
+                          key={`dot-${index}`}
+                          style={[styles.paginationDot, index === activeImageIndex && styles.paginationDotActive]}
+                        />
+                      ))}
+                    </View>
+                  )}
+                </>
+              ) : imageUri ? (
                 <Image source={{ uri: imageUri }} style={styles.heroImage} resizeMode="contain" />
               ) : (
                 <Text style={{ fontSize: 64, textAlign: 'center' }}>🌿</Text>
@@ -142,62 +178,76 @@ export default function ProductDetailScreen() {
             </Animated.View>
           </View>
 
-          {/* Details */}
-          <View style={styles.detailsCard}>
+          {/* Scrollable content overlays image area when scrolling up */}
+          <Animated.ScrollView
+            style={styles.detailsScroll}
+            contentContainerStyle={[styles.detailsScrollContent, { paddingBottom: 220 + insets.bottom }]}
+            showsVerticalScrollIndicator={false}
+            onScroll={Animated.event(
+              [{ nativeEvent: { contentOffset: { y: scrollY } } }],
+              { useNativeDriver: true },
+            )}
+            scrollEventThrottle={16}
+          >
+            {/* Details */}
+            <View style={styles.detailsCard}>
             <Text style={styles.detailsHeading}>Details</Text>
             <Text style={styles.detailsBody}>
               {product.description ?? 'No description available.'}
             </Text>
-          </View>
+            </View>
 
-          {/* More Items — hidden until scroll threshold */}
-          {relatedProducts.length > 0 && (
-            <Animated.View
-              style={[
-                styles.moreSection,
-                { opacity: moreOpacity, transform: [{ translateY: moreTranslateY }] },
-              ]}
-            >
-              <Text style={styles.moreSectionTitle}>More Items</Text>
-              <View style={styles.moreGrid}>
-                {relatedProducts.map((item) => {
-                  const uri = item.primary_image_url ? fixAssetUrl(item.primary_image_url) : null;
-                  const itemPrice = item.discounted_price ?? item.base_price ?? 0;
-                  return (
-                    <TouchableOpacity
-                      key={item.id}
-                      style={styles.moreCard}
-                      onPress={() => router.push(`/product/${item.id}`)}
-                    >
-                      <View style={styles.moreCardTop}>
-                        {uri ? (
-                          <Image source={{ uri }} style={styles.moreCardImage} resizeMode="contain" />
-                        ) : (
-                          <Text style={{ fontSize: 28, textAlign: 'center' }}>🌿</Text>
-                        )}
-                        <Text style={styles.ratingBadge}>
-                          {item.vendor?.average_rating ?? '–'}
-                        </Text>
-                      </View>
-                      <View style={styles.moreCardBottom}>
-                        <Text style={styles.moreCardName} numberOfLines={1}>{item.name}</Text>
-                        <View style={styles.moreCardFooter}>
-                          <Heart size={12} color="#9ca3af" fill="none" />
-                          <Text style={styles.moreCardPrice}>{itemPrice} Rs</Text>
+            {/* More Items — hidden until scroll threshold */}
+            {relatedProducts.length > 0 && (
+              <Animated.View
+                style={[
+                  styles.moreSection,
+                  { opacity: moreOpacity, transform: [{ translateY: moreTranslateY }] },
+                ]}
+              >
+                <Text style={styles.moreSectionTitle}>More Items</Text>
+                <View style={styles.moreGrid}>
+                  {relatedProducts.map((item) => {
+                    const uri = item.primary_image_url ? fixAssetUrl(item.primary_image_url) : null;
+                    const itemPrice = item.discounted_price ?? item.base_price ?? 0;
+                    return (
+                      <TouchableOpacity
+                        key={item.id}
+                        style={styles.moreCard}
+                        onPress={() => router.push(`/product/${item.id}`)}
+                      >
+                        <View style={styles.moreCardTop}>
+                          {uri ? (
+                            <Image source={{ uri }} style={styles.moreCardImage} resizeMode="contain" />
+                          ) : (
+                            <Text style={{ fontSize: 28, textAlign: 'center' }}>🌿</Text>
+                          )}
+                          <Text style={styles.ratingBadge}>
+                            {item.vendor?.average_rating ?? '–'}
+                          </Text>
                         </View>
-                      </View>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </Animated.View>
-          )}
-        </Animated.ScrollView>
+                        <View style={styles.moreCardBottom}>
+                          <Text style={styles.moreCardName} numberOfLines={1}>{item.name}</Text>
+                          <View style={styles.moreCardFooter}>
+                            <Heart size={12} color="#9ca3af" fill="none" />
+                            <Text style={styles.moreCardPrice}>₹{itemPrice}</Text>
+                          </View>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </Animated.View>
+            )}
+          </Animated.ScrollView>
+        </View>
 
         {/* Bottom action bar + tab bar — pinned to screen bottom */}
         <View style={styles.bottomContainer}>
           <View style={styles.bottomBar}>
-          <Text style={styles.bottomPrice}>Rs {price}</Text>
+          <View style={styles.pricePill}>
+            <Text style={styles.bottomPrice}>₹{price}</Text>
+          </View>
           <TouchableOpacity
             style={[styles.addToCartBtn, isAddingToCart && styles.addToCartBtnDisabled]}
             onPress={handleAddToCart}
@@ -216,6 +266,12 @@ export default function ProductDetailScreen() {
 
           <BottomTabBar activeTab="index" />
         </View>
+
+        <CartSuccessModal
+          visible={Boolean(addedProductName)}
+          productName={addedProductName}
+          onClose={() => setAddedProductName('')}
+        />
 
       </SafeAreaView>
     </ImageBackground>
@@ -247,21 +303,49 @@ const styles = StyleSheet.create({
   },
   productTitle: { fontSize: 20, fontWeight: '700', color: '#2C1F13', flex: 1, paddingTop: 40 },
 
+  contentWrap: {
+    flex: 1,
+  },
   imageArea: {
-    height: H * 0.5,
-    width: '100%',
+    height: H * 0.36,
     alignItems: 'center',
     justifyContent: 'flex-end',
     paddingBottom: 12,
     overflow: 'hidden',
   },
+  detailsScroll: { flex: 1 },
+  // Keep content naturally below the hero image.
+  detailsScrollContent: { paddingTop: 28 },
+  heroCarousel: { flex: 1 },
+  heroCarouselContent: { alignItems: 'stretch' },
+  heroSlide: { width: HERO_FRAME_W, height: '100%', alignItems: 'center', justifyContent: 'center' },
   heroImage: { width: '100%', height: '100%', marginTop: 16 },
+  paginationRow: {
+    position: 'absolute',
+    bottom: 4,
+    left: 0,
+    right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 6,
+  },
+  paginationDot: {
+    width: 7,
+    height: 7,
+    borderRadius: 4,
+    backgroundColor: 'rgba(16, 94, 65, 0.22)',
+  },
+  paginationDotActive: {
+    width: 18,
+    backgroundColor: '#105e41',
+  },
 
   detailsCard: {
     marginHorizontal: 16,
-    marginTop: 8,
-    paddingHorizontal: 20,
-    paddingVertical: 2,
+    paddingHorizontal: 4,
+    paddingTop: 16,
+    paddingBottom: 16,
   },
   detailsHeading: { fontSize: 24, fontWeight: '700', color: '#2C1F13', marginBottom: 8 },
   detailsBody:    { fontSize: 16, color: '#4A3728', lineHeight: 22 },
@@ -316,16 +400,27 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 24,
-    paddingVertical: 20,
-    backgroundColor: '#EBF2E4',
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(0,0,0,0.06)',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    marginHorizontal: 0,
+    paddingHorizontal: 6,
+    paddingVertical: 10,
+    backgroundColor: 'rgba(233, 243, 228, 0.97)',
+    borderWidth: 1,
+    borderColor: 'rgba(16, 94, 65, 0.12)',
+    borderRadius: 12,
+    shadowColor: '#0f5132',
+    shadowOffset: { width: 0, height: -2 },
+    shadowOpacity: 0.12,
+    shadowRadius: 10,
+    elevation: 8,
   },
-  bottomPrice:   { fontSize: 22, fontWeight: '700', color: '#1f2937' },
-  addToCartBtn:  { backgroundColor: '#1a6b5a', paddingHorizontal: 28, paddingVertical: 14, borderRadius: 10, flexDirection: 'row', alignItems: 'center', gap: 8 },
+  pricePill: {
+    
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+  },
+  bottomPrice:   { fontSize: 30, fontWeight: '800', color: '#105e41' },
+  addToCartBtn:  { backgroundColor: '#4A9B5F', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   addToCartBtnDisabled: { opacity: 0.6 },
   addToCartText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });

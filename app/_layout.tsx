@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as Notifications from 'expo-notifications';
 import { useAuthStore } from '@/lib/store';
 import { registerForPushNotifications, isExpoGo } from '@/lib/pushNotifications';
+import ThemedAlertHost from '@/components/ui/ThemedAlertHost';
 
 /**
  * Root layout — initialises auth state and redirects:
@@ -60,8 +61,6 @@ export default function RootLayout() {
     };
   }, [token]);
 
-  if (isLoading) return null;
-
   return (
     <>
       <StatusBar style="auto" />
@@ -76,6 +75,7 @@ export default function RootLayout() {
         <Stack.Screen name="settings/payment-methods" options={{ presentation: 'card' }} />
         <Stack.Screen name="settings/tax-settings" options={{ presentation: 'card' }} />
       </Stack>
+      <ThemedAlertHost />
     </>
   );
 }

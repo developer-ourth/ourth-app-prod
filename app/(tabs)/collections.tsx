@@ -60,7 +60,7 @@ export default function CollectionsScreen() {
             >
               <Heart size={24} color="#0d9488" fill="#0d9488" />
             </TouchableOpacity>
-            <Text style={styles.productPrice}>{Math.round(price)} Rs</Text>
+            <Text style={styles.productPrice}>₹{Math.round(price)}</Text>
           </View>
           {rating != null && (
             <Text style={styles.productRating}>{rating.toFixed(1)}</Text>
