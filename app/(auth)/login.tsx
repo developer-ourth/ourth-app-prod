@@ -22,8 +22,9 @@ import api from '@/lib/api';
 import * as SecureStore from 'expo-secure-store';
 import { TOKEN_KEY, VENDOR_ID_KEY, VENDOR_CODE_KEY } from '@/lib/api';
 
-const { width: W } = Dimensions.get('window');
+const { width: W, height: H } = Dimensions.get('window');
 const SX = W / 360;
+const SY = H / 640;
 
 const BG        = require('../../assets/Registers.png');
 const BACK      = require('../../assets/back.png');
