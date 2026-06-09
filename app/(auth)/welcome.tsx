@@ -41,7 +41,7 @@ export default function WelcomeScreen() {
       <Image source={LOGO} style={styles.logo} resizeMode="contain" />
 
       {/* ── Title – top 225 ── */}
-      <Text style={styles.title}>Welcome to{'\n'}Healing Ourth</Text>
+      <Text style={styles.title}>Welcome to{'\'\n'}Healing OURTH</Text>
 
       {/* ── Subtitle – top 312 ── */}
       <Text style={styles.subtitle}>

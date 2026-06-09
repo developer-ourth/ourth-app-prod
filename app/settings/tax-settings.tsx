@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, MapPin } from '@/components/icons';
 import { addressAPI, taxProfileAPI } from '@/lib/api';
+import { useAuthStore } from '@/lib/store';
 import type { Address, UserTaxProfile } from '@/lib/types';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -24,6 +25,7 @@ const BG_IMAGE = require('../../assets/Frame16.png');
 
 export default function TaxSettingsScreen() {
   const router = useRouter();
+  const { user } = useAuthStore();
 
   // ── Tax profile ──────────────────────────────────────────────────────────
   const [profile, setProfile]           = useState<UserTaxProfile | null>(null);
@@ -41,9 +43,10 @@ export default function TaxSettingsScreen() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [taxRes, addrRes] = await Promise.all([
+      const [taxRes, addrRes, profileRes] = await Promise.all([
         taxProfileAPI.get(),
         addressAPI.list(),
+        import('@/lib/api').then(({ default: api }) => api.get('/me/profile')),
       ]);
       const p: UserTaxProfile | null = taxRes.data?.data ?? null;
       if (p) {
@@ -51,6 +54,14 @@ export default function TaxSettingsScreen() {
         setIsGst(p.is_gst_registered);
         setGstin(p.gstin ?? '');
         setLegalName(p.legal_business_name ?? '');
+      } else {
+        // No saved tax profile yet — pre-fill GSTIN from vendor registration
+        const profileData = (profileRes?.data as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
+        const registrationGstin = (profileData?.gstin ?? (user as Record<string, unknown>)?.gstin) as string | undefined;
+        if (registrationGstin) {
+          setIsGst(true);
+          setGstin(registrationGstin);
+        }
       }
       const list: Address[] = addrRes.data?.data ?? addrRes.data ?? [];
       setAddresses(list);

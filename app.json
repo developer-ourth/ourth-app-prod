@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "ourth-mobile",
+    "name": "OURTH",
     "slug": "ourth-mobile",
     "owner": "sahilbhargava.dev",
     "scheme": "ourth",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/HOIPL_Logo.png",
+    "icon": "./assets/logohoilp.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
@@ -20,7 +20,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/HOIPL_Logo.png",
+        "foregroundImage": "./assets/logohoilp.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -37,7 +37,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/HOIPL_Logo.png",
+          "icon": "./assets/logohoilp.png",
           "color": "#1a6b5a",
           "sounds": []
         }

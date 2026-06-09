@@ -19,6 +19,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight, ArrowUp } from '@/components/icons';
 import { addressAPI, type AddressPayload } from '@/lib/api';
+import LocationPickerModal from '@/components/ui/LocationPickerModal';
+import { INDIA_STATES, getCitiesForState } from '@/lib/indiaLocations';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const BG_IMAGE = require('../../assets/Frame16.png');
@@ -57,6 +59,8 @@ export default function AddressBookScreen() {
   const [editingId, setEditingId] = useState<number | null>(null);
   const [form, setForm] = useState<AddressPayload>(EMPTY_FORM);
   const [saving, setSaving] = useState(false);
+  const [showStatePicker, setShowStatePicker] = useState(false);
+  const [showCityPicker,  setShowCityPicker]  = useState(false);
 
   const fetchAddresses = useCallback(async () => {
     try {
@@ -237,8 +241,6 @@ export default function AddressBookScreen() {
                   { key: 'name', label: 'Name / Label *', placeholder: "e.g. Raju's Shop" },
                   { key: 'address_line1', label: 'Address Line 1 *', placeholder: 'Street, building, floor…' },
                   { key: 'address_line2', label: 'Address Line 2', placeholder: 'Landmark, area…' },
-                  { key: 'city', label: 'City', placeholder: 'City' },
-                  { key: 'state', label: 'State', placeholder: 'State' },
                   { key: 'postal_code', label: 'PIN Code', placeholder: '560038' },
                   { key: 'mobile', label: 'Mobile', placeholder: '+91 98765 43210' },
                 ] as { key: keyof AddressPayload; label: string; placeholder: string }[]
@@ -255,6 +257,37 @@ export default function AddressBookScreen() {
                   />
                 </View>
               ))}
+
+              {/* State picker */}
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>State</Text>
+                <TouchableOpacity
+                  style={styles.pickerBtn}
+                  onPress={() => setShowStatePicker(true)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.pickerBtnText, !form.state && styles.pickerBtnPlaceholder]}>
+                    {form.state || 'Select State'}
+                  </Text>
+                </TouchableOpacity>
+              </View>
+
+              {/* City picker */}
+              <View style={styles.fieldGroup}>
+                <Text style={styles.fieldLabel}>City</Text>
+                <TouchableOpacity
+                  style={styles.pickerBtn}
+                  onPress={() => {
+                    if (!form.state) { return; }
+                    setShowCityPicker(true);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.pickerBtnText, !form.city && styles.pickerBtnPlaceholder]}>
+                    {form.city || (form.state ? 'Select City' : 'Select State first')}
+                  </Text>
+                </TouchableOpacity>
+              </View>
 
               <TouchableOpacity
                 style={styles.defaultToggle}
@@ -283,6 +316,23 @@ export default function AddressBookScreen() {
             </View>
           </View>
         </KeyboardAvoidingView>
+
+        <LocationPickerModal
+          visible={showStatePicker}
+          title="Select State"
+          options={INDIA_STATES}
+          selected={form.state ?? ''}
+          onSelect={(val) => { setForm((f) => ({ ...f, state: val, city: '' })); setShowStatePicker(false); }}
+          onClose={() => setShowStatePicker(false)}
+        />
+        <LocationPickerModal
+          visible={showCityPicker}
+          title="Select City"
+          options={getCitiesForState(form.state ?? '')}
+          selected={form.city ?? ''}
+          onSelect={(val) => { setForm((f) => ({ ...f, city: val })); setShowCityPicker(false); }}
+          onClose={() => setShowCityPicker(false)}
+        />
       </Modal>
     </ImageBackground>
   );
@@ -430,4 +480,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   saveBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  pickerBtn: {
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 11,
+    backgroundColor: '#f9fafb',
+  },
+  pickerBtnText: { fontSize: 14, color: '#111827' },
+  pickerBtnPlaceholder: { color: '#9ca3af' },
 });

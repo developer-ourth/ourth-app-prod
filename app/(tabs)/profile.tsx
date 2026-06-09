@@ -12,7 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { User, ChevronLeft, ExternalLink, LogOut } from '@/components/icons';
+import { User, ChevronLeft, Pencil, LogOut } from '@/components/icons';
 import { BlurView } from 'expo-blur';
 import api from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
@@ -149,7 +149,7 @@ export default function ProfileScreen() {
                   ) : editing ? (
                     <Text style={styles.saveText}>Save</Text>
                   ) : (
-                    <ExternalLink size={18} color="#1a6b5a" />
+                    <Pencil size={18} color="#1a6b5a" />
                   )}
                 </TouchableOpacity>
               </View>
@@ -254,7 +254,7 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     overflow: 'hidden',
     borderWidth: 1.5,
-    borderColor: '#d1d5db',
+    borderColor: '#c23c3c',
     paddingVertical: 14,
     paddingHorizontal: 20,
   },

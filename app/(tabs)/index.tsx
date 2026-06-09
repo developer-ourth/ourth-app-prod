@@ -167,7 +167,7 @@ export default function HomeScreen() {
               </Text>
             </View>
             <View style={styles.headerRight}>
-              <Text style={styles.brandName}>Ourth</Text>
+              <Text style={styles.brandName}>OURTH</Text>
               <TouchableOpacity
                 style={styles.profileBtn}
                 onPress={() => router.push('/(tabs)/profile')}

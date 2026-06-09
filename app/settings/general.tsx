@@ -47,10 +47,10 @@ export default function GeneralInfoScreen() {
           {/* ── About ── */}
           <View style={styles.section}>
             <LinearGradient colors={['#4A9B5F', '#D8EFE0']} start={{ x: 0, y: 0 }} end={{ x: 1, y: 1 }} style={[StyleSheet.absoluteFill, { opacity: 0.5 }]} pointerEvents="none" />
-            <Text style={styles.sectionTitle}>About Ourth</Text>
+            <Text style={styles.sectionTitle}>About OURTH</Text>
             <View style={styles.aboutBox}>
               <Text style={styles.aboutText}>
-                Ourth is a marketplace connecting vendors and customers for sustainable, everyday products.
+                OURTH is a marketplace connecting vendors and customers for sustainable, everyday products.
                 We believe in building a greener future — one order at a time.
               </Text>
             </View>

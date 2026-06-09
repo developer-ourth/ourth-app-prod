@@ -54,7 +54,7 @@ function getPaymentErrorMessage(err: unknown): string {
 
 export default function CartScreen() {
   const router = useRouter();
-  const { cart, loading, fetchCart, updateItem, removeItem, clearCart } = useCartStore();
+  const { cart, loading, fetchCart, updateItem, removeItem, clearCart, addItem } = useCartStore();
 
   const [placing, setPlacing] = useState(false);
 
@@ -187,7 +187,7 @@ export default function CartScreen() {
                     key: razorpayKey,
                     amount: initiateData.amount,
                     currency: initiateData.currency,
-                    name: 'Ourth',
+                    name: 'OURTH',
                     description: `Order #${createdOrder.order_number ?? createdOrderId}`,
                     order_id: initiateData.razorpay_order_id,
                     prefill: {
@@ -391,7 +391,17 @@ export default function CartScreen() {
                           <Text style={styles.suggestName} numberOfLines={1}>{prod.name}</Text>
                           <Text style={styles.suggestPrice}>₹{Math.round(price)}</Text>
                         </View>
-                        <TouchableOpacity style={styles.suggestAddBtn} activeOpacity={0.8}>
+                        <TouchableOpacity
+                          style={styles.suggestAddBtn}
+                          activeOpacity={0.8}
+                          onPress={async () => {
+                            try {
+                              await addItem(prod.id);
+                            } catch (err: unknown) {
+                              Alert.alert('Error', err instanceof Error ? err.message : 'Could not add item.');
+                            }
+                          }}
+                        >
                           <Text style={styles.suggestAddBtnText}>ADD</Text>
                         </TouchableOpacity>
                       </TouchableOpacity>

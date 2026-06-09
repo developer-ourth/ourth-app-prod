@@ -135,7 +135,7 @@ export default function LandingScreen() {
       >
         <Text style={styles.heading}>
           Healing{' '}
-          <Text style={styles.headingBrand}>Ourth</Text>
+          <Text style={styles.headingBrand}>OURTH</Text>
         </Text>
         <Text style={styles.subheading}>ECO-FRIENDLY DISPOSABLES</Text>
       </Animated.View>

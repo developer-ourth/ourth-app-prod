@@ -19,6 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import api, { VENDOR_ID_KEY, VENDOR_CODE_KEY } from '@/lib/api';
 import * as SecureStore from 'expo-secure-store';
+import LocationPickerModal from '@/components/ui/LocationPickerModal';
+import { INDIA_STATES, getCitiesForState } from '@/lib/indiaLocations';
 
 const { width: W, height: H } = Dimensions.get('window');
 const SX = W / 360;
@@ -37,9 +39,12 @@ export default function RegisterScreen() {
   const [gst,          setGst]          = useState('');
   const [mobile,       setMobile]       = useState('');
   const [email,        setEmail]        = useState('');
-  const [location,     setLocation]     = useState('');
+  const [city,         setCity]         = useState('');
+  const [state,        setState]        = useState('');
   const [password,     setPassword]     = useState('');
   const [loading,      setLoading]      = useState(false);
+  const [showStatePicker, setShowStatePicker] = useState(false);
+  const [showCityPicker,  setShowCityPicker]  = useState(false);
 
   async function handleSubmit() {
     if (!name.trim() || !mobile.trim() || password.length < 8) {
@@ -58,16 +63,15 @@ export default function RegisterScreen() {
       Alert.alert('Validation', 'Enter a valid 15-character GSTIN (e.g. 27AABCT1234H1Z5).');
       return;
     }
-    if (!location.trim() || !location.includes(',')) {
-      Alert.alert('Validation', 'Enter City and State separated by a comma (e.g. Delhi, Uttar Pradesh).');
+    if (!state.trim() || !city.trim()) {
+      Alert.alert('Validation', 'Please select City and State.');
       return;
     }
     setLoading(true);
     try {
-      // Parse "City, State" from the location field
-      const parts  = location.split(',');
-      const city   = parts[0]?.trim() || '';
-      const state  = parts[1]?.trim() || '';
+      // Parse city and state
+      const cityVal  = city.trim();
+      const stateVal = state.trim();
 
       const res = await api.post<{
         success: boolean;
@@ -79,8 +83,8 @@ export default function RegisterScreen() {
         password,
         business_name: businessName.trim(),
         gstin:         gst.trim().toUpperCase(),
-        city,
-        state,
+        city:          cityVal,
+        state:         stateVal,
       });
 
       // Store vendor_id so pending-approval can poll status
@@ -180,13 +184,27 @@ export default function RegisterScreen() {
           </Field>
 
           <Field label="City, State *">
-            <TextInput
-              style={styles.input}
-              value={location}
-              onChangeText={setLocation}
-              placeholder="Delhi, Uttar Pradesh"
-              placeholderTextColor="rgba(60,80,60,0.6)"
-            />
+            <TouchableOpacity
+              style={styles.pickerBtn}
+              onPress={() => setShowStatePicker(true)}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.pickerBtnText, !state && styles.pickerBtnPlaceholder]}>
+                {state || 'Select State'}
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.pickerBtn, { marginTop: 8 }]}
+              onPress={() => {
+                if (!state) { Alert.alert('Select State', 'Please select a state first.'); return; }
+                setShowCityPicker(true);
+              }}
+              activeOpacity={0.75}
+            >
+              <Text style={[styles.pickerBtnText, !city && styles.pickerBtnPlaceholder]}>
+                {city || 'Select City'}
+              </Text>
+            </TouchableOpacity>
           </Field>
 
           <Field label="Create Password">
@@ -201,7 +219,7 @@ export default function RegisterScreen() {
           </Field>
 
           <Text style={styles.disclaimer}>
-            By registering, your account will be reviewed by Ourth team. You'll be notified once approved.
+            By registering, your account will be reviewed by OURTH team. You'll be notified once approved.
           </Text>
 
           <TouchableOpacity
@@ -218,6 +236,23 @@ export default function RegisterScreen() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <LocationPickerModal
+        visible={showStatePicker}
+        title="Select State"
+        options={INDIA_STATES}
+        selected={state}
+        onSelect={(val) => { setState(val); setCity(''); }}
+        onClose={() => setShowStatePicker(false)}
+      />
+      <LocationPickerModal
+        visible={showCityPicker}
+        title="Select City"
+        options={getCitiesForState(state)}
+        selected={city}
+        onSelect={setCity}
+        onClose={() => setShowCityPicker(false)}
+      />
     </ImageBackground>
   );
 }
@@ -341,5 +376,24 @@ const styles = StyleSheet.create({
     fontSize:   16 * SX,
     fontWeight: '700',
     color:      '#2C1F13',
+  },
+  pickerBtn: {
+    height:            46,
+    borderRadius:      10,
+    paddingHorizontal: 12 * SX,
+    justifyContent:    'center',
+    backgroundColor:   'rgba(255, 255, 255, 0.12)',
+    borderWidth:       1,
+    borderColor:       '#6B5A3E',
+  },
+  pickerBtnText: {
+    fontSize:   18 * SX,
+    fontWeight: '700',
+    color:      '#4A3728',
+    fontFamily: 'Poppins',
+  },
+  pickerBtnPlaceholder: {
+    color: 'rgba(60,80,60,0.6)',
+    fontWeight: '400',
   },
 });

@@ -35,6 +35,7 @@ import {
   Plus as _Plus,
   ExternalLink as _ExternalLink,
   Leaf as _Leaf,
+  Pencil as _Pencil,
 } from 'lucide-react-native';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -67,3 +68,4 @@ export const Minus        = _Minus        as AnyIcon;
 export const Plus         = _Plus         as AnyIcon;
 export const ExternalLink = _ExternalLink as AnyIcon;
 export const Leaf         = _Leaf         as AnyIcon;
+export const Pencil       = _Pencil       as AnyIcon;
