@@ -40,7 +40,7 @@ export default function RootLayout() {
   useEffect(() => {
     if (!token || isExpoGo) return;
 
-    registerForPushNotifications();
+    void registerForPushNotifications();
 
     // Show foreground notifications in the notification tray
     notificationListener.current = Notifications.addNotificationReceivedListener(() => {

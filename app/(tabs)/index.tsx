@@ -11,6 +11,7 @@ import {
   StyleSheet,
   Dimensions,
   Alert,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -25,6 +26,7 @@ import type { Category, Product } from '@/lib/types';
 
 const BG_IMAGE = require('../../assets/Frame16.png');
 const CARD_W = Math.floor((Dimensions.get('window').width - 36) / 2);
+const USE_NATIVE_BLUR = Platform.OS !== 'android';
 
 export default function HomeScreen() {
   const router = useRouter();
@@ -104,7 +106,11 @@ export default function HomeScreen() {
       >
         {/* Glassmorphism base */}
         <View style={styles.glassBase}>
-          <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
+          {USE_NATIVE_BLUR ? (
+            <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
+          ) : (
+            <View style={styles.androidGlassFallback} />
+          )}
         </View>
         {/* Green rectangle — inset over yellow card base */}
         <View style={styles.productTop}>
@@ -294,6 +300,10 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
   },
   glassBase: { ...StyleSheet.absoluteFillObject, borderRadius: 20, overflow: 'hidden' },
+  androidGlassFallback: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(255,255,255,0.22)',
+  },
   productTop:              { marginTop: 6, marginHorizontal: 6, height: 225, backgroundColor: '#EBF2E4', borderRadius: 16, overflow: 'hidden' },
   productBottom:           { paddingHorizontal: 12, paddingTop: 8 },
   productImage:            { width: '100%', height: 150, marginTop: 10, backgroundColor: '#EBF2E4' },
