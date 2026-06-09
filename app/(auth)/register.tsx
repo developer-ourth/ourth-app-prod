@@ -17,7 +17,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import api, { VENDOR_ID_KEY, VENDOR_CODE_KEY } from '@/lib/api';
+import api, { VENDOR_GSTIN_KEY, VENDOR_ID_KEY, VENDOR_CODE_KEY } from '@/lib/api';
 import * as SecureStore from 'expo-secure-store';
 import LocationPickerModal from '@/components/ui/LocationPickerModal';
 import { INDIA_STATES, getCitiesForState } from '@/lib/indiaLocations';
@@ -93,6 +93,7 @@ export default function RegisterScreen() {
       if (res.data.data.vendor_code) {
         await SecureStore.setItemAsync(VENDOR_CODE_KEY, res.data.data.vendor_code);
       }
+      await SecureStore.setItemAsync(VENDOR_GSTIN_KEY, gst.trim().toUpperCase());
 
       router.replace('/(auth)/pending-approval');
     } catch (err: unknown) {

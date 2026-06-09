@@ -16,7 +16,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, MapPin } from '@/components/icons';
-import { addressAPI, taxProfileAPI } from '@/lib/api';
+import * as SecureStore from 'expo-secure-store';
+import api, { addressAPI, taxProfileAPI, VENDOR_GSTIN_KEY } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import type { Address, UserTaxProfile } from '@/lib/types';
 
@@ -43,10 +44,9 @@ export default function TaxSettingsScreen() {
 
   const fetchAll = useCallback(async () => {
     try {
-      const [taxRes, addrRes, profileRes] = await Promise.all([
+      const [taxRes, addrRes] = await Promise.all([
         taxProfileAPI.get(),
         addressAPI.list(),
-        import('@/lib/api').then(({ default: api }) => api.get('/me/profile')),
       ]);
       const p: UserTaxProfile | null = taxRes.data?.data ?? null;
       if (p) {
@@ -55,9 +55,27 @@ export default function TaxSettingsScreen() {
         setGstin(p.gstin ?? '');
         setLegalName(p.legal_business_name ?? '');
       } else {
-        // No saved tax profile yet — pre-fill GSTIN from vendor registration
-        const profileData = (profileRes?.data as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
-        const registrationGstin = (profileData?.gstin ?? (user as Record<string, unknown>)?.gstin) as string | undefined;
+        // No saved tax profile yet — pre-fill GSTIN from the best available source.
+        // Order: auth store -> secure storage -> vendor detail endpoint
+        let registrationGstin = (user as Record<string, unknown> | null)?.gstin as string | undefined;
+
+        if (!registrationGstin) {
+          registrationGstin = await SecureStore.getItemAsync(VENDOR_GSTIN_KEY) ?? undefined;
+        }
+
+        if (!registrationGstin) {
+          const vendorId = (user as Record<string, unknown> | null)?.vendor_id as number | null | undefined;
+          if (vendorId) {
+            try {
+              const vendorRes = await api.get(`/vendors/${vendorId}`);
+              const vendorData = (vendorRes.data as Record<string, unknown>)?.data as Record<string, unknown> | undefined;
+              registrationGstin = vendorData?.gstin as string | undefined;
+            } catch {
+              // Ignore if vendor detail is not accessible for this account/status.
+            }
+          }
+        }
+
         if (registrationGstin) {
           setIsGst(true);
           setGstin(registrationGstin);
@@ -73,7 +91,7 @@ export default function TaxSettingsScreen() {
       setTaxLoading(false);
       setAddrLoading(false);
     }
-  }, []);
+  }, [user]);
 
   useEffect(() => { fetchAll(); }, [fetchAll]);
 

@@ -21,6 +21,7 @@ export function fixAssetUrl(url: string | null | undefined): string | undefined 
 export const TOKEN_KEY      = 'ourth_auth_token';
 export const VENDOR_ID_KEY  = 'ourth_vendor_id';
 export const VENDOR_CODE_KEY = 'ourth_vendor_code';
+export const VENDOR_GSTIN_KEY = 'ourth_vendor_gstin';
 
 const api = axios.create({
   baseURL: API_BASE_URL,
