@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "OURTH",
-    "slug": "ourth-mobile",
+    "slug": "OURTH",
     "owner": "sahilbhargava.dev",
     "scheme": "ourth",
     "version": "1.0.0",
@@ -10,7 +10,7 @@
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splash-icon.png",
+      "image": "./assets/logohoilp.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
