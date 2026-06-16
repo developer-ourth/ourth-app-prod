@@ -88,7 +88,7 @@ export default function GeneralInfoScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.linkRow}
-              onPress={() => openLink('https://ourth.in/privacy', 'Privacy Policy page not available.')}
+              onPress={() => openLink('https://www.healingourth.com/privacy-policy', 'Privacy Policy page not available.')}
               activeOpacity={0.7}
             >
               <Text style={styles.linkLabel}>Privacy Policy</Text>

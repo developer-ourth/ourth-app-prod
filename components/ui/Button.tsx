@@ -1,10 +1,11 @@
-import { TouchableOpacity, Text, ActivityIndicator, type TouchableOpacityProps } from 'react-native';
+import { TouchableOpacity, Text, ActivityIndicator, StyleSheet, type TouchableOpacityProps } from 'react-native';
 
 interface ButtonProps extends TouchableOpacityProps {
   title: string;
   loading?: boolean;
   variant?: 'primary' | 'outline' | 'ghost';
   size?: 'sm' | 'md' | 'lg';
+  className?: string;
 }
 
 const VARIANT_STYLES = {
@@ -25,7 +26,7 @@ export function Button({
   variant = 'primary',
   size = 'md',
   disabled,
-  className,
+  style,
   ...rest
 }: ButtonProps) {
   const v = VARIANT_STYLES[variant];
@@ -33,15 +34,33 @@ export function Button({
 
   return (
     <TouchableOpacity
-      className={`items-center justify-center rounded-xl ${v.container} ${s.container} ${disabled || loading ? 'opacity-60' : ''} ${className ?? ''}`}
+      style={[styles.base, styles[variant], styles[size], disabled || loading ? styles.disabled : null, style]}
       disabled={disabled || loading}
       {...rest}
     >
       {loading ? (
         <ActivityIndicator color={variant === 'primary' ? '#fff' : '#16a34a'} />
       ) : (
-        <Text className={`font-semibold ${v.text} ${s.text}`}>{title}</Text>
+        <Text style={[styles.text, styles[`${variant}Text`], styles[`${size}Text`]]}>{title}</Text>
       )}
     </TouchableOpacity>
   );
 }
+
+const styles = StyleSheet.create({
+  base: { alignItems: 'center', justifyContent: 'center', borderRadius: 12 },
+  primary: { backgroundColor: '#16a34a' },
+  outline: { borderWidth: 1, borderColor: '#16a34a', backgroundColor: 'transparent' },
+  ghost: { backgroundColor: 'transparent' },
+  sm: { paddingHorizontal: 12, paddingVertical: 8 },
+  md: { paddingHorizontal: 16, paddingVertical: 14 },
+  lg: { paddingHorizontal: 24, paddingVertical: 16 },
+  disabled: { opacity: 0.6 },
+  text: { fontWeight: '600' },
+  primaryText: { color: '#fff' },
+  outlineText: { color: '#16a34a' },
+  ghostText: { color: '#16a34a' },
+  smText: { fontSize: 14 },
+  mdText: { fontSize: 16 },
+  lgText: { fontSize: 16 },
+});

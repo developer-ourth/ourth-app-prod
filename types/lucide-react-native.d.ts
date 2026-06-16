@@ -22,9 +22,23 @@ declare module 'lucide-react-native' {
   export const Search: LucideIcon;
   export const MapPin: LucideIcon;
   export const ChevronRight: LucideIcon;
+  export const ChevronLeft: LucideIcon;
   export const Package: LucideIcon;
   export const LogOut: LucideIcon;
   export const Gift: LucideIcon;
   export const ArrowUp: LucideIcon;
   export const ArrowDown: LucideIcon;
+  export const UserPlus: LucideIcon;
+  export const LogIn: LucideIcon;
+  export const ShoppingCart: LucideIcon;
+  export const Tag: LucideIcon;
+  export const Filter: LucideIcon;
+  export const Heart: LucideIcon;
+  export const AlignJustify: LucideIcon;
+  export const Trash2: LucideIcon;
+  export const Minus: LucideIcon;
+  export const Plus: LucideIcon;
+  export const ExternalLink: LucideIcon;
+  export const Leaf: LucideIcon;
+  export const Pencil: LucideIcon;
 }

@@ -147,8 +147,7 @@ export default function OrdersScreen() {
                     colors={['#3C7DC8', '#8AEFF2']}
                     start={{ x: 0, y: 0 }}
                     end={{ x: 1, y: 1 }}
-                    opacity={0.5}
-                    style={StyleSheet.absoluteFill}
+                    style={[StyleSheet.absoluteFill, { opacity: 0.5 }]}
                     pointerEvents="none"
                   />
                 )}

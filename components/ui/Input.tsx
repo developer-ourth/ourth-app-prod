@@ -1,20 +1,39 @@
-import { View, Text, TextInput, type TextInputProps } from 'react-native';
+import { View, Text, TextInput, StyleSheet, type TextInputProps } from 'react-native';
 
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
+  className?: string;
 }
 
-export function Input({ label, error, className, ...rest }: InputProps) {
+export function Input({ label, error, style, ...rest }: InputProps) {
   return (
-    <View className="gap-1.5">
-      {label && <Text className="text-sm font-medium text-gray-700">{label}</Text>}
+    <View style={styles.container}>
+      {label && <Text style={styles.label}>{label}</Text>}
       <TextInput
-        className={`w-full rounded-xl border px-4 py-3.5 text-base text-gray-900 ${error ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50'} ${className ?? ''}`}
+        style={[styles.input, error ? styles.inputError : null, style]}
         placeholderTextColor="#9ca3af"
         {...rest}
       />
-      {error && <Text className="text-xs text-red-500">{error}</Text>}
+      {error && <Text style={styles.error}>{error}</Text>}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { gap: 6 },
+  label: { fontSize: 14, fontWeight: '500', color: '#374151' },
+  input: {
+    width: '100%',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: '#f9fafb',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#111827',
+  },
+  inputError: { borderColor: '#f87171', backgroundColor: '#fef2f2' },
+  error: { fontSize: 12, color: '#ef4444' },
+});
