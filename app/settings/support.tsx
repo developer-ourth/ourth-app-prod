@@ -48,7 +48,7 @@ export default function HelpSupportScreen() {
   }
 
   function openEmail() {
-    Linking.openURL('mailto:support@ourth.in').catch(() =>
+    Linking.openURL('mailto:support@healingourth.com').catch(() =>
       Alert.alert('Error', 'Could not open email client.'),
     );
   }
@@ -109,7 +109,7 @@ export default function HelpSupportScreen() {
             <TouchableOpacity style={styles.contactRow} onPress={openEmail} activeOpacity={0.7}>
               <View>
                 <Text style={styles.contactLabel}>Email Support</Text>
-                <Text style={styles.contactDetail}>support@ourth.in</Text>
+                <Text style={styles.contactDetail}>support@healingourth.com</Text>
               </View>
               <ChevronRight size={16} color="#9ca3af" />
             </TouchableOpacity>

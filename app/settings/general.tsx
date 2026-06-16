@@ -80,7 +80,7 @@ export default function GeneralInfoScreen() {
             <Text style={styles.sectionTitle}>Legal</Text>
             <TouchableOpacity
               style={styles.linkRow}
-              onPress={() => openLink('https://ourth.in/terms', 'Terms of Service page not available.')}
+              onPress={() => openLink('https://healingourth.com/terms', 'Terms of Service page not available.')}
               activeOpacity={0.7}
             >
               <Text style={styles.linkLabel}>Terms of Service</Text>
@@ -96,7 +96,7 @@ export default function GeneralInfoScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.linkRow, { borderBottomWidth: 0 }]}
-              onPress={() => openLink('https://ourth.in/refund', 'Refund Policy page not available.')}
+              onPress={() => openLink('https://healingourth.com/refund', 'Refund Policy page not available.')}
               activeOpacity={0.7}
             >
               <Text style={styles.linkLabel}>Refund Policy</Text>
@@ -110,15 +110,15 @@ export default function GeneralInfoScreen() {
             <Text style={styles.sectionTitle}>Connect</Text>
             <TouchableOpacity
               style={styles.linkRow}
-              onPress={() => openLink('https://ourth.in')}
+              onPress={() => openLink('https://healingourth.com')}
               activeOpacity={0.7}
             >
-              <Text style={styles.linkLabel}>Visit ourth.in</Text>
+              <Text style={styles.linkLabel}>Visit healingourth.com</Text>
               <ChevronRight size={16} color="#9ca3af" />
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.linkRow, { borderBottomWidth: 0 }]}
-              onPress={() => openLink('https://instagram.com/ourth.in', 'Instagram not available.')}
+              onPress={() => openLink('https://instagram.com/healingourth.com', 'Instagram not available.')}
               activeOpacity={0.7}
             >
               <Text style={styles.linkLabel}>Follow us on Instagram</Text>
