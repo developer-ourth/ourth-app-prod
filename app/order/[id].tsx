@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -157,6 +157,36 @@ export default function OrderTrackingScreen() {
 
   // Reorder state
   const [reordering, setReordering] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+
+  async function handleCancelOrder() {
+    if (!order?.id) { return; }
+    Alert.alert(
+      'Cancel Order',
+      'Are you sure you want to cancel this order?',
+      [
+        { text: 'No', style: 'cancel' },
+        {
+          text: 'Yes, Cancel',
+          style: 'destructive',
+          onPress: async () => {
+            setCancelling(true);
+            try {
+              await api.post(`/me/orders/${order.id}/cancel`);
+              Alert.alert('Success', 'Order cancelled successfully.');
+              fetchOrder();
+              fetchTracking();
+            } catch (error: any) {
+              const msg = error.response?.data?.message || 'Could not cancel order. Please try again.';
+              Alert.alert('Error', msg);
+            } finally {
+              setCancelling(false);
+            }
+          },
+        },
+      ]
+    );
+  }
 
   async function handleReorder() {
     if (!order?.items?.length) { return; }
@@ -448,6 +478,27 @@ export default function OrderTrackingScreen() {
 
           <StatusProgress status={statusForProgress} />
         </View>
+
+        {/* Cancel Order card — only for pending orders */}
+        {(tracking?.order_status ?? order?.order_status) === 'pending' && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Order Actions</Text>
+            <Text style={styles.cancelNote}>
+              You can cancel this order before the vendor starts preparing it.
+            </Text>
+            <TouchableOpacity
+              style={styles.cancelBtn}
+              onPress={handleCancelOrder}
+              disabled={cancelling}
+            >
+              {cancelling ? (
+                <ActivityIndicator size="small" color="#fff" />
+              ) : (
+                <Text style={styles.cancelBtnText}>🚫  Cancel Order</Text>
+              )}
+            </TouchableOpacity>
+          </View>
+        )}
 
         {/* Items card */}
         {order?.items && order.items.length > 0 && (
@@ -746,4 +797,9 @@ const styles = StyleSheet.create({
   reorderBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
   invoiceBtn:     { borderWidth: 1.5, borderColor: '#3d6b4f', borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
   invoiceBtnText: { color: '#3d6b4f', fontWeight: '700', fontSize: 15 },
+
+  // Cancel Order
+  cancelNote:    { fontSize: 13, color: '#6b7280', marginBottom: 14, lineHeight: 18 },
+  cancelBtn:     { backgroundColor: '#dc2626', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
+  cancelBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
 });
