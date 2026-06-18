@@ -55,13 +55,11 @@ export default function RegisterScreen() {
       Alert.alert('Validation', 'Business name is required.');
       return;
     }
-    if (!gst.trim()) {
-      Alert.alert('Validation', 'GST number is required for B2B registration.');
-      return;
-    }
-    if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gst.trim().toUpperCase())) {
-      Alert.alert('Validation', 'Enter a valid 15-character GSTIN (e.g. 27AABCT1234H1Z5).');
-      return;
+    if (gst.trim()) {
+      if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gst.trim().toUpperCase())) {
+        Alert.alert('Validation', 'Enter a valid 15-character GSTIN (e.g. 27AABCT1234H1Z5).');
+        return;
+      }
     }
     if (!state.trim() || !city.trim()) {
       Alert.alert('Validation', 'Please select City and State.');
@@ -82,7 +80,7 @@ export default function RegisterScreen() {
         phone:         mobile.trim(),
         password,
         business_name: businessName.trim(),
-        gstin:         gst.trim().toUpperCase(),
+        gstin:         gst.trim().toUpperCase() || undefined,
         city:          cityVal,
         state:         stateVal,
       });
@@ -93,7 +91,11 @@ export default function RegisterScreen() {
       if (res.data.data.vendor_code) {
         await SecureStore.setItemAsync(VENDOR_CODE_KEY, res.data.data.vendor_code);
       }
-      await SecureStore.setItemAsync(VENDOR_GSTIN_KEY, gst.trim().toUpperCase());
+      if (gst.trim()) {
+        await SecureStore.setItemAsync(VENDOR_GSTIN_KEY, gst.trim().toUpperCase());
+      } else {
+        await SecureStore.deleteItemAsync(VENDOR_GSTIN_KEY);
+      }
 
       router.replace('/(auth)/pending-approval');
     } catch (err: unknown) {
@@ -149,7 +151,7 @@ export default function RegisterScreen() {
             />
           </Field>
 
-          <Field label="GST Number *">
+          <Field label="GST Number (optional)">
             <TextInput
               style={styles.input}
               value={gst}
