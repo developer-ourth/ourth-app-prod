@@ -41,7 +41,8 @@
           "color": "#1a6b5a",
           "sounds": []
         }
-      ]
+      ],
+      "@sentry/react-native"
     ],
     "extra": {
       "router": {},
