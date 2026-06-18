@@ -62,6 +62,27 @@ export default function AddressBookScreen() {
   const [showStatePicker, setShowStatePicker] = useState(false);
   const [showCityPicker,  setShowCityPicker]  = useState(false);
 
+  const fetchLocationFromPincode = async (pincode: string) => {
+    try {
+      const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
+      const data = await response.json();
+      if (data && data[0] && data[0].Status === 'Success') {
+        const postOffice = data[0].PostOffice?.[0];
+        if (postOffice) {
+          const state = postOffice.State;
+          const city = postOffice.District;
+          setForm((f) => ({
+            ...f,
+            state: state || f.state,
+            city: city || f.city,
+          }));
+        }
+      }
+    } catch (error) {
+      console.log('Error fetching PIN code details:', error);
+    }
+  };
+
   const fetchAddresses = useCallback(async () => {
     try {
       const res = await addressAPI.list();
@@ -107,12 +128,30 @@ export default function AddressBookScreen() {
       Alert.alert('Validation', 'Name and Address Line 1 are required.');
       return;
     }
+    
+    if (form.postal_code && form.postal_code.trim().length !== 6) {
+      Alert.alert('Validation', 'PIN Code must be exactly 6 digits.');
+      return;
+    }
+
+    if (form.mobile && form.mobile.trim().length !== 10) {
+      Alert.alert('Validation', 'Mobile number must be exactly 10 digits.');
+      return;
+    }
+
+    const payload: AddressPayload = {
+      ...form,
+      address_line2: form.address_line2?.trim() || null,
+      postal_code: form.postal_code?.trim() || undefined,
+      mobile: form.mobile?.trim() || undefined,
+    };
+
     setSaving(true);
     try {
       if (editingId !== null) {
-        await addressAPI.update(editingId, form);
+        await addressAPI.update(editingId, payload);
       } else {
-        await addressAPI.create(form);
+        await addressAPI.create(payload);
       }
       setModalVisible(false);
       await fetchAddresses();
@@ -252,8 +291,18 @@ export default function AddressBookScreen() {
                     placeholder={placeholder}
                     placeholderTextColor="#9ca3af"
                     value={String(form[key] ?? '')}
-                    onChangeText={(val) => setForm((f) => ({ ...f, [key]: val }))}
+                    onChangeText={(val) => {
+                      let filtered = val;
+                      if (key === 'mobile' || key === 'postal_code') {
+                        filtered = val.replace(/[^0-9]/g, '');
+                      }
+                      setForm((f) => ({ ...f, [key]: filtered }));
+                      if (key === 'postal_code' && filtered.length === 6) {
+                        fetchLocationFromPincode(filtered);
+                      }
+                    }}
                     keyboardType={key === 'mobile' || key === 'postal_code' ? 'phone-pad' : 'default'}
+                    maxLength={key === 'mobile' ? 10 : key === 'postal_code' ? 6 : undefined}
                   />
                 </View>
               ))}
