@@ -49,6 +49,17 @@ export interface Category {
   children?: Category[];
 }
 
+export interface ProductPack {
+  id: number;
+  product_id: number;
+  name: string;
+  base_price: string;
+  discounted_price: string | null;
+  sku: string | null;
+  stock_quantity: number;
+  is_active: boolean;
+}
+
 export interface Product {
   id: number;
   vendor_id: number | null;
@@ -66,6 +77,7 @@ export interface Product {
   weight_grams: number | null;
   is_featured: boolean;
   is_active: boolean;
+  packs?: ProductPack[];
   vendor?: Pick<Vendor, 'id' | 'business_name' | 'city' | 'average_rating'>;
 }
 
@@ -75,10 +87,12 @@ export interface CartItem {
   id: number;
   cart_id: number;
   product_id: number;
+  product_pack_id?: number | null;
   quantity: number;
   unit_price: string;
   total_price: string;
   product?: Pick<Product, 'id' | 'name' | 'primary_image_url' | 'base_price' | 'discounted_price'>;
+  productPack?: ProductPack | null;
 }
 
 export interface Cart {
@@ -97,11 +111,13 @@ export interface Cart {
 export interface OrderItem {
   id: number;
   product_id: number;
+  product_pack_id?: number | null;
   product_name: string;
   quantity: number;
   unit_price: string;
   total_price: string;
   product?: Pick<Product, 'id' | 'name' | 'primary_image_url'>;
+  productPack?: ProductPack | null;
 }
 
 export interface Order {

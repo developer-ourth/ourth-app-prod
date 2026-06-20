@@ -141,7 +141,7 @@ export default function AddressBookScreen() {
 
     const payload: AddressPayload = {
       ...form,
-      address_line2: form.address_line2?.trim() || null,
+      address_line2: form.address_line2?.trim() || undefined,
       postal_code: form.postal_code?.trim() || undefined,
       mobile: form.mobile?.trim() || undefined,
     };

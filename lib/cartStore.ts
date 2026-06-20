@@ -9,7 +9,7 @@ interface CartStore {
   addingProductId: number | null;
 
   fetchCart: () => Promise<void>;
-  addItem: (productId: number, quantity?: number) => Promise<void>;
+  addItem: (productId: number, quantity?: number, productPackId?: number | null) => Promise<void>;
   updateItem: (itemId: number, quantity: number) => Promise<void>;
   removeItem: (itemId: number) => Promise<void>;
   clearCart: () => Promise<void>;
@@ -32,10 +32,10 @@ export const useCartStore = create<CartStore>((set, get) => ({
     }
   },
 
-  addItem: async (productId, quantity = 1) => {
+  addItem: async (productId, quantity = 1, productPackId = null) => {
     set({ addingProductId: productId });
     try {
-      const { data } = await cartAPI.addItem(productId, quantity);
+      const { data } = await cartAPI.addItem(productId, quantity, productPackId);
       set({ cart: data.data ?? data });
     } finally {
       set({ addingProductId: null });

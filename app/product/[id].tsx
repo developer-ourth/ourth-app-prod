@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, Image, TouchableOpacity, ActivityIndicator, ImageBackground, StyleSheet, Dimensions, Animated, Alert, ScrollView } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -25,6 +25,7 @@ export default function ProductDetailScreen() {
   const [relatedProducts, setRelatedProducts] = useState<Product[]>([]);
   const [addedProductName, setAddedProductName] = useState('');
   const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [selectedPackId, setSelectedPackId] = useState<number | null>(null);
 
   const { liked: likedMap, toggle } = useCollectionsStore();
   const isLiked = product ? Boolean(likedMap[product.id]) : false;
@@ -33,16 +34,27 @@ export default function ProductDetailScreen() {
   const isAddingToCart = product ? addingProductId === product.id : false;
   const insets = useSafeAreaInsets();
 
+  const selectedPack = product?.packs?.find(p => p.id === selectedPackId);
+
+  useEffect(() => {
+    if (product && product.packs && product.packs.length > 0) {
+      const activePacks = product.packs.filter(p => p.is_active);
+      if (activePacks.length > 0) {
+        setSelectedPackId(activePacks[0].id);
+      }
+    }
+  }, [product]);
+
   const handleAddToCart = useCallback(async () => {
     if (!product) { return; }
     try {
-      await addItem(product.id);
-      setAddedProductName(product.name);
+      await addItem(product.id, 1, selectedPackId);
+      setAddedProductName(selectedPack ? `${product.name} (${selectedPack.name})` : product.name);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not add item.';
       Alert.alert('Error', msg);
     }
-  }, [product, addItem]);
+  }, [product, addItem, selectedPackId, selectedPack]);
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -108,7 +120,9 @@ export default function ProductDetailScreen() {
     ? fixAssetUrl(product.primary_image_url)
     : null;
 
-  const price = product.discounted_price ?? product.base_price ?? 0;
+  const price = selectedPack 
+    ? (selectedPack.discounted_price ?? selectedPack.base_price) 
+    : (product.discounted_price ?? product.base_price ?? 0);
   const imageUrls = Array.from(
     new Set(
       [product.primary_image_url, ...(product.secondary_images ?? [])]
@@ -189,6 +203,36 @@ export default function ProductDetailScreen() {
             )}
             scrollEventThrottle={16}
           >
+            {/* Pack Size Selector */}
+            {product.packs && product.packs.length > 0 && (
+              <View style={styles.packsCard}>
+                <Text style={styles.detailsHeading}>Select Pack Size</Text>
+                <View style={styles.packsRow}>
+                  {product.packs.map((pack) => {
+                    const isSelected = pack.id === selectedPackId;
+                    const packPrice = pack.discounted_price ?? pack.base_price;
+                    return (
+                      <TouchableOpacity
+                        key={pack.id}
+                        style={[
+                          styles.packOption,
+                          isSelected && styles.packOptionSelected
+                        ]}
+                        onPress={() => setSelectedPackId(pack.id)}
+                      >
+                        <Text style={[styles.packName, isSelected && styles.packNameSelected]}>
+                          {pack.name}
+                        </Text>
+                        <Text style={[styles.packPriceText, isSelected && styles.packPriceTextSelected]}>
+                          ₹{packPrice}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+            )}
+
             {/* Details */}
             <View style={styles.detailsCard}>
             <Text style={styles.detailsHeading}>Details</Text>
@@ -423,5 +467,49 @@ const styles = StyleSheet.create({
   addToCartBtn:  { backgroundColor: '#4A9B5F', paddingHorizontal: 24, paddingVertical: 14, borderRadius: 12, flexDirection: 'row', alignItems: 'center', gap: 8 },
   addToCartBtnDisabled: { opacity: 0.6 },
   addToCartText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+
+  packsCard: {
+    marginHorizontal: 16,
+    paddingHorizontal: 4,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  packsRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+    marginTop: 8,
+  },
+  packOption: {
+    backgroundColor: 'rgba(255,255,255,0.7)',
+    borderWidth: 1.5,
+    borderColor: '#e5e7eb',
+    borderRadius: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    minWidth: 100,
+  },
+  packOptionSelected: {
+    backgroundColor: '#105e41',
+    borderColor: '#105e41',
+  },
+  packName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2C1F13',
+  },
+  packNameSelected: {
+    color: '#fff',
+  },
+  packPriceText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#6b7280',
+    marginTop: 2,
+  },
+  packPriceTextSelected: {
+    color: '#fff',
+  },
 });
 

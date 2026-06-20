@@ -139,7 +139,7 @@ export const taxProfileAPI = {
 
 export const cartAPI = {
   getCart:    ()                                     => api.get('/me/cart'),
-  addItem:    (productId: number, quantity = 1)      => api.post('/me/cart/items', { product_id: productId, quantity }),
+  addItem:    (productId: number, quantity = 1, productPackId?: number | null)      => api.post('/me/cart/items', { product_id: productId, quantity, product_pack_id: productPackId }),
   updateItem: (itemId: number, quantity: number)     => api.patch(`/me/cart/items/${itemId}`, { quantity }),
   removeItem: (itemId: number)                       => api.delete(`/me/cart/items/${itemId}`),
   clearCart:  ()                                     => api.delete('/me/cart'),

@@ -325,6 +325,7 @@ export default function CartScreen() {
                         <View style={styles.itemInfo}>
                           <Text style={styles.itemName} numberOfLines={2}>
                             {item.product?.name ?? `Product #${item.product_id}`}
+                            {item.productPack ? ` (${item.productPack.name})` : ''}
                           </Text>
                           <Text style={styles.itemUnits}>{item.quantity} units</Text>
                           <TouchableOpacity onPress={() => router.push('/(tabs)/collections')}>
