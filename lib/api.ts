@@ -5,17 +5,22 @@ import * as SecureStore from 'expo-secure-store';
 // For Android emulator use http://10.0.2.2:8000/api/v1 (php artisan serve on port 8000)
 // For a physical device or production use your server's HTTPS URL.
 export const API_BASE_URL =
-  process.env.EXPO_PUBLIC_API_URL ?? 'https://ourth-bcakend-prod-main-mzfsy0.laravel.cloud/api/v1';
+  process.env.EXPO_PUBLIC_API_URL ?? 'http://127.0.0.1:8000/api/v1';
 
 /**
- * Rewrites any asset URL that points to "localhost" so it works on the
+ * Rewrites any asset URL that points to "localhost" or "127.0.0.1" so it works on the
  * Android emulator (which must use 10.0.2.2 to reach the host machine).
  */
 export function fixAssetUrl(url: string | null | undefined): string | undefined {
   if (!url) {
     return undefined;
   }
-  return url.replace(/http:\/\/localhost(:\d+)?/g, (_, port) => `http://10.0.2.2${port ?? ':8000'}`);
+  let resolvedUrl = url;
+  if (url.includes('laravel.cloud')) {
+    const localHostBase = API_BASE_URL.replace('/api/v1', '');
+    resolvedUrl = url.replace(/^https:\/\/.*\.laravel\.cloud/g, localHostBase);
+  }
+  return resolvedUrl.replace(/http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/g, (_, host, port) => `http://10.0.2.2${port ?? ':8000'}`);
 }
 
 export const TOKEN_KEY      = 'ourth_auth_token';
