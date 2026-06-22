@@ -161,6 +161,8 @@ export type OrderPayload = {
   delivery_phone: string;
   payment_method: 'cod' | 'online' | 'wallet' | 'upi' | 'card' | 'netbanking';
   notes?: string;
+  order_type?: 'b2c' | 'b2b';
+  buyer_gstin?: string;
 };
 
 export type RazorpayInitiateResponse = {

@@ -18,9 +18,10 @@ import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
 import RazorpayCheckout from 'react-native-razorpay';
-import { ShoppingCart, ChevronLeft, Minus, Plus, Heart, ArrowUp, MapPin, ChevronRight } from '@/components/icons';
+import { ShoppingCart, ChevronLeft, Minus, Plus, Heart, ArrowUp, MapPin, ChevronRight, Trash2 } from '@/components/icons';
 import { fixAssetUrl, addressAPI, marketplaceAPI, orderAPI } from '@/lib/api';
 import { useCartStore } from '@/lib/cartStore';
+import { useAuthStore } from '@/lib/store';
 import { isExpoGo } from '@/lib/pushNotifications';
 import type { CartItem, Address, Product } from '@/lib/types';
 
@@ -55,6 +56,8 @@ function getPaymentErrorMessage(err: unknown): string {
 export default function CartScreen() {
   const router = useRouter();
   const { cart, loading, fetchCart, updateItem, removeItem, clearCart, addItem } = useCartStore();
+  const { user } = useAuthStore();
+  const isB2B = user?.role === 'vendor';
 
   const [placing, setPlacing] = useState(false);
 
@@ -114,6 +117,14 @@ export default function CartScreen() {
   const handleQuantityChange = useCallback(
     (item: CartItem, delta: number) => {
       const next = item.quantity + delta;
+      if (isB2B && delta < 0) {
+        const minQty = item.product?.min_order_quantity ?? 1;
+        if (next < minQty) {
+          Alert.alert('Minimum Order Quantity', `Minimum order quantity for "${item.product?.name ?? 'this item'}" is ${minQty} units.`);
+          return;
+        }
+      }
+
       if (next < 1) {
         Alert.alert('Remove item', `Remove ${item.product?.name ?? 'this item'} from cart?`, [
           { text: 'Cancel', style: 'cancel' },
@@ -123,7 +134,17 @@ export default function CartScreen() {
         updateItem(item.id, next);
       }
     },
-    [updateItem, removeItem],
+    [updateItem, removeItem, isB2B],
+  );
+
+  const handleRemoveItem = useCallback(
+    (item: CartItem) => {
+      Alert.alert('Remove item', `Remove ${item.product?.name ?? 'this item'} from cart?`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Remove', style: 'destructive', onPress: () => removeItem(item.id) },
+      ]);
+    },
+    [removeItem],
   );
 
   const handleCheckout = useCallback(async () => {
@@ -163,6 +184,8 @@ export default function CartScreen() {
                 delivery_postal_code:  selectedAddress.postal_code  ?? '',
                 delivery_phone:        selectedAddress.mobile       ?? '',
                 payment_method:        isCod ? 'cod' : 'upi',
+                order_type:            isB2B ? 'b2b' : 'b2c',
+                buyer_gstin:           isB2B ? (user as any).vendor?.gstin : undefined,
               });
 
               const createdOrder = orderRes.data?.data ?? orderRes.data;
@@ -260,7 +283,7 @@ export default function CartScreen() {
   const total = cart?.total_amount ?? '0';
   const subtotal = items.reduce((sum, item) => {
     const price = parseFloat(
-      item.product?.discounted_price ?? item.product?.base_price ?? item.unit_price ?? '0',
+      item.unit_price ?? item.product?.discounted_price ?? item.product?.base_price ?? '0',
     );
     return sum + price * item.quantity;
   }, 0);
@@ -308,8 +331,11 @@ export default function CartScreen() {
                   const uri = item.product?.primary_image_url
                     ? fixAssetUrl(item.product.primary_image_url)
                     : undefined;
-                  const unitPrice =
-                    item.product?.discounted_price ?? item.product?.base_price ?? item.unit_price;
+                  const unitPrice = item.unit_price ?? (
+                    isB2B && item.product?.wholesale_price !== null && item.product?.wholesale_price !== undefined
+                      ? item.product.wholesale_price
+                      : (item.product?.discounted_price ?? item.product?.base_price)
+                  );
 
                   return (
                     <View key={String(item.id)}>
@@ -328,9 +354,15 @@ export default function CartScreen() {
                             {item.productPack ? ` (${item.productPack.name})` : ''}
                           </Text>
                           <Text style={styles.itemUnits}>{item.quantity} units</Text>
-                          <TouchableOpacity onPress={() => router.push('/(tabs)/collections')}>
-                            <Text style={styles.addToCollection}>Add to your collection</Text>
-                          </TouchableOpacity>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
+                            <TouchableOpacity onPress={() => router.push('/(tabs)/collections')}>
+                              <Text style={styles.addToCollection}>Add to your collection</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => handleRemoveItem(item)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                              <Trash2 size={12} color="#dc2626" fill="none" />
+                              <Text style={{ fontSize: 11, color: '#dc2626', fontWeight: '500' }}>Remove</Text>
+                            </TouchableOpacity>
+                          </View>
                         </View>
 
                         <View style={styles.itemRight}>
@@ -365,9 +397,11 @@ export default function CartScreen() {
                 <Text style={styles.suggestTitle}>You might also like</Text>
                 <View style={styles.suggestRow}>
                   {suggestedProducts.map((prod) => {
-                    const price = prod.discounted_price
-                      ? parseFloat(prod.discounted_price)
-                      : parseFloat(prod.base_price);
+                    const price = isB2B && prod.wholesale_price !== null && prod.wholesale_price !== undefined
+                      ? parseFloat(prod.wholesale_price)
+                      : (prod.discounted_price
+                        ? parseFloat(prod.discounted_price)
+                        : parseFloat(prod.base_price));
                     const uri = prod.primary_image_url
                       ? fixAssetUrl(prod.primary_image_url)
                       : null;
@@ -390,7 +424,12 @@ export default function CartScreen() {
                             </View>
                           )}
                           <Text style={styles.suggestName} numberOfLines={1}>{prod.name}</Text>
-                          <Text style={styles.suggestPrice}>₹{Math.round(price)}</Text>
+                          <Text style={styles.suggestPrice}>
+                            ₹{Math.round(price)}
+                            {isB2B && prod.wholesale_price !== null && (
+                              <Text style={{ fontSize: 8, color: '#1a6b5a', fontWeight: 'bold' }}> B2B</Text>
+                            )}
+                          </Text>
                         </View>
                         <TouchableOpacity
                           style={styles.suggestAddBtn}

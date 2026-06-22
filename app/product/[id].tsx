@@ -9,6 +9,7 @@ import { marketplaceAPI, fixAssetUrl } from '@/lib/api';
 import { useCartStore } from '@/lib/cartStore';
 import { useCollectionsStore } from '@/lib/collectionsStore';
 import type { Product } from '@/lib/types';
+import { useAuthStore } from '@/lib/store';
 
 const BG_IMAGE = require('../../assets/Frame16.png');
 const { width: W, height: H } = Dimensions.get('window');
@@ -18,6 +19,8 @@ const HERO_FRAME_W = W * 0.78;
 export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
+  const { user } = useAuthStore();
+  const isB2B = user?.role === 'vendor';
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -45,16 +48,18 @@ export default function ProductDetailScreen() {
     }
   }, [product]);
 
+  const minQty = isB2B ? (product?.min_order_quantity ?? 1) : 1;
+
   const handleAddToCart = useCallback(async () => {
     if (!product) { return; }
     try {
-      await addItem(product.id, 1, selectedPackId);
+      await addItem(product.id, minQty, selectedPackId);
       setAddedProductName(selectedPack ? `${product.name} (${selectedPack.name})` : product.name);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not add item.';
       Alert.alert('Error', msg);
     }
-  }, [product, addItem, selectedPackId, selectedPack]);
+  }, [product, addItem, selectedPackId, selectedPack, minQty]);
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -122,7 +127,9 @@ export default function ProductDetailScreen() {
 
   const price = selectedPack 
     ? (selectedPack.discounted_price ?? selectedPack.base_price) 
-    : (product.discounted_price ?? product.base_price ?? 0);
+    : (isB2B && product.wholesale_price !== null && product.wholesale_price !== undefined
+        ? product.wholesale_price
+        : (product.discounted_price ?? product.base_price ?? 0));
   const imageUrls = Array.from(
     new Set(
       [product.primary_image_url, ...(product.secondary_images ?? [])]
@@ -289,8 +296,13 @@ export default function ProductDetailScreen() {
         {/* Bottom action bar + tab bar — pinned to screen bottom */}
         <View style={styles.bottomContainer}>
           <View style={styles.bottomBar}>
-          <View style={styles.pricePill}>
+          <View style={[styles.pricePill, { flexDirection: 'row', alignItems: 'center' }]}>
             <Text style={styles.bottomPrice}>₹{price}</Text>
+            {isB2B && !selectedPack && (
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginLeft: 6 }}>
+                <Text style={{ fontSize: 9, fontWeight: '700', color: '#fff' }}>B2B</Text>
+              </View>
+            )}
           </View>
           <TouchableOpacity
             style={[styles.addToCartBtn, isAddingToCart && styles.addToCartBtnDisabled]}
@@ -302,7 +314,14 @@ export default function ProductDetailScreen() {
             ) : (
               <>
                 <ShoppingCart size={18} color="#fff" />
-                <Text style={styles.addToCartText}>Add to Cart</Text>
+                <View style={{ marginLeft: 6 }}>
+                  <Text style={styles.addToCartText}>Add to Cart</Text>
+                  {isB2B && minQty > 1 && !selectedPack && (
+                    <Text style={{ fontSize: 8, color: 'rgba(255,255,255,0.8)', fontWeight: '600', textAlign: 'center' }}>
+                      Min: {minQty} units
+                    </Text>
+                  )}
+                </View>
               </>
             )}
           </TouchableOpacity>

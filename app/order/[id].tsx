@@ -333,7 +333,7 @@ export default function OrderTrackingScreen() {
     return (
       <SafeAreaView style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#3d6b4f" />
-        <Text style={styles.loadingText}>Loading trackingâ€¦</Text>
+        <Text style={styles.loadingText}>Loading tracking</Text>
       </SafeAreaView>
     );
   }

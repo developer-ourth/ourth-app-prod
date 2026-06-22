@@ -29,11 +29,11 @@ export const useAuthStore = create<AuthStore>((set, get) => ({
       const token = await SecureStore.getItemAsync(TOKEN_KEY);
       if (token) {
         // Validate token is still good by fetching the current user
-        const { data } = await api.get<{ id: number; name: string; email: string; phone: string | null; role: string; vendor_id: number | null }>(
+        const { data } = await api.get<{ success: boolean; data: AuthUser }>(
           '/auth/user',
           { headers: { Authorization: `Bearer ${token}` } },
         );
-        set({ token, user: data, isLoading: false });
+        set({ token, user: data.data, isLoading: false });
       } else {
         set({ isLoading: false });
       }

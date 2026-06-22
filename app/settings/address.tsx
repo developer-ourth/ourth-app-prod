@@ -63,6 +63,21 @@ export default function AddressBookScreen() {
   const [showCityPicker,  setShowCityPicker]  = useState(false);
 
   const fetchLocationFromPincode = async (pincode: string) => {
+    // Local offline prefix fallback (e.g. for Gautam Buddha Nagar/Noida 2013xx and Delhi 11xxxx)
+    if (pincode.startsWith('2013')) {
+      setForm((f) => ({
+        ...f,
+        state: 'Uttar Pradesh',
+        city: 'Gautam Buddha Nagar',
+      }));
+    } else if (pincode.startsWith('11')) {
+      setForm((f) => ({
+        ...f,
+        state: 'Delhi',
+        city: 'New Delhi',
+      }));
+    }
+
     try {
       const response = await fetch(`https://api.postalpincode.in/pincode/${pincode}`);
       const data = await response.json();

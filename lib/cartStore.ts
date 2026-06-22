@@ -33,6 +33,11 @@ export const useCartStore = create<CartStore>((set, get) => ({
   },
 
   addItem: async (productId, quantity = 1, productPackId = null) => {
+    const { useAuthStore } = require('./store');
+    const user = useAuthStore.getState().user;
+    if (user?.role === 'vendor' && user?.kyc_status !== 'verified' && user?.kyc_status !== 'approved') {
+      throw new Error('Your Business KYC is currently pending review. You cannot place B2B wholesale orders until verified. Please upload documents in your Business KYC settings.');
+    }
     set({ addingProductId: productId });
     try {
       const { data } = await cartAPI.addItem(productId, quantity, productPackId);
@@ -43,6 +48,17 @@ export const useCartStore = create<CartStore>((set, get) => ({
   },
 
   updateItem: async (itemId, quantity) => {
+    const { useAuthStore } = require('./store');
+    const user = useAuthStore.getState().user;
+    const cart = get().cart;
+    const item = cart?.items.find((i) => i.id === itemId);
+    if (item && user?.role === 'vendor') {
+      const minQty = item.product?.min_order_quantity ?? 1;
+      if (quantity < minQty) {
+        throw new Error(`Minimum order quantity for "${item.product?.name}" is ${minQty} units.`);
+      }
+    }
+
     try {
       const { data } = await cartAPI.updateItem(itemId, quantity);
       set({ cart: data.data ?? data });

@@ -15,17 +15,17 @@ import { LinearGradient } from 'expo-linear-gradient';
 const { width: W, height: H } = Dimensions.get('window');
 
 // Asset map
-const MASCOT   = require('../../assets/Ourth.png');
-const CHEVRON  = require('../../assets/front.png');
-const BIRD     = require('../../assets/43.png');
-const TREE      = require('../../assets/36.png');
+const MASCOT = require('../../assets/Ourth.png');
+const CHEVRON = require('../../assets/front.png');
+const BIRD = require('../../assets/43.png');
+const TREE = require('../../assets/36.png');
 const TREE_RIGHT = require('../../assets/37.png');
 const FLOWERS1 = require('../../assets/39.png');   // daisy foreground
 const FLOWERS2 = require('../../assets/38.png');   // tulip foreground
-const CLOUD    = require('../../assets/40.png');
+const CLOUD = require('../../assets/40.png');
 const GROUND35 = require('../../assets/35.png');   // darkest - layer 1 (back)
 const GROUND34 = require('../../assets/34.png');   // bumpy hills - layer 2
-const GROUND33 = require('../../assets/33.png'); 
+const GROUND33 = require('../../assets/33.png');
 const GROUND32 = require('../../assets/32.png');   // slanted hill - layer 3
 const GROUND31 = require('../../assets/31.png');   // light hill - layer 4 (front)
 
@@ -33,19 +33,19 @@ export default function LandingScreen() {
   const router = useRouter();
 
   // Animated values
-  const titleOpacity   = useRef(new Animated.Value(0)).current;
-  const titleY         = useRef(new Animated.Value(-30)).current;
-  const mascotOpacity  = useRef(new Animated.Value(0)).current;
-  const mascotY        = useRef(new Animated.Value(80)).current;
-  const birdX          = useRef(new Animated.Value(-100)).current;
-  const birdOpacity    = useRef(new Animated.Value(0)).current;
-  const cloud1X        = useRef(new Animated.Value(-160)).current;
-  const cloud2X        = useRef(new Animated.Value(W)).current;
-  const btnOpacity     = useRef(new Animated.Value(0)).current;
-  const btnScale       = useRef(new Animated.Value(0.85)).current;
+  const titleOpacity = useRef(new Animated.Value(0)).current;
+  const titleY = useRef(new Animated.Value(-30)).current;
+  const mascotOpacity = useRef(new Animated.Value(0)).current;
+  const mascotY = useRef(new Animated.Value(80)).current;
+  const birdX = useRef(new Animated.Value(-100)).current;
+  const birdOpacity = useRef(new Animated.Value(0)).current;
+  const cloud1X = useRef(new Animated.Value(-160)).current;
+  const cloud2X = useRef(new Animated.Value(W)).current;
+  const btnOpacity = useRef(new Animated.Value(0)).current;
+  const btnScale = useRef(new Animated.Value(0.85)).current;
 
   // Idle bounce for mascot
-  const mascotBounce   = useRef(new Animated.Value(0)).current;
+  const mascotBounce = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     // Entrance sequence
@@ -113,7 +113,7 @@ export default function LandingScreen() {
       />
 
       {/* Trees */}
-      <Image source={TREE} style={styles.treeLeft}  resizeMode="contain" />
+      <Image source={TREE} style={styles.treeLeft} resizeMode="contain" />
       <Image source={TREE_RIGHT} style={styles.treeRight} resizeMode="contain" />
 
       {/* Bird */}
@@ -157,7 +157,7 @@ export default function LandingScreen() {
       />
 
       {/* Foreground flowers (on top of ground layers) */}
-      <Image source={FLOWERS2} style={styles.flowersLeft}  resizeMode="contain" />
+      <Image source={FLOWERS2} style={styles.flowersLeft} resizeMode="contain" />
       <Image source={FLOWERS1} style={styles.flowersRight} resizeMode="contain" />
 
       {/* Get Started button */}
@@ -214,7 +214,7 @@ const styles = StyleSheet.create({
     width: W,
     height: H * 0.20,
   },
-   ground33: {
+  ground33: {
     position: 'absolute',
     bottom: 0,
     left: 0,
@@ -244,7 +244,7 @@ const styles = StyleSheet.create({
     opacity: 0.9,
   },
   cloud1: { top: H * 0.08 },
-  cloud2: { top: H * 0.14, width: 150, height: 70 },
+  cloud2: { top: H * 0.14, width: 150, height: 100 },
 
   // Trees (sit on the mid-ground layers)
   treeLeft: {

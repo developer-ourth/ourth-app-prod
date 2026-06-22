@@ -48,7 +48,7 @@ export default function WelcomeScreen() {
         Choose how you'd like to continue your{'\n'}eco-friendly journey
       </Text>
 
-      {/* ── Register card – Vendor ── */}
+      {/* ── Register card ── */}
       <TouchableOpacity
         style={[styles.card, { top: 386 * SY }]}
         activeOpacity={0.8}
@@ -60,7 +60,7 @@ export default function WelcomeScreen() {
         <View style={styles.cardText}>
           <Text style={styles.cardTitle}>Create Account</Text>
           <Text style={styles.cardDesc}>
-            New here? Register your business and start ordering
+            New here? Register to start ordering
           </Text>
         </View>
       </TouchableOpacity>

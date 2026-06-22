@@ -14,10 +14,11 @@ import {
   StyleSheet,
   StatusBar,
   Dimensions,
+  Switch,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import api, { VENDOR_GSTIN_KEY, VENDOR_ID_KEY, VENDOR_CODE_KEY } from '@/lib/api';
+import api, { VENDOR_GSTIN_KEY, VENDOR_ID_KEY, VENDOR_CODE_KEY, TOKEN_KEY } from '@/lib/api';
 import * as SecureStore from 'expo-secure-store';
 import LocationPickerModal from '@/components/ui/LocationPickerModal';
 import { INDIA_STATES, getCitiesForState } from '@/lib/indiaLocations';
@@ -39,65 +40,128 @@ export default function RegisterScreen() {
   const [gst,          setGst]          = useState('');
   const [mobile,       setMobile]       = useState('');
   const [email,        setEmail]        = useState('');
+  const [pincode,      setPincode]      = useState('');
   const [city,         setCity]         = useState('');
   const [state,        setState]        = useState('');
   const [password,     setPassword]     = useState('');
+  const [isBusiness,   setIsBusiness]   = useState(false);
   const [loading,      setLoading]      = useState(false);
   const [showStatePicker, setShowStatePicker] = useState(false);
   const [showCityPicker,  setShowCityPicker]  = useState(false);
+
+  const fetchLocationFromPincode = async (code: string) => {
+    // Local offline prefix fallback (e.g. for Gautam Buddha Nagar/Noida 2013xx and Delhi 11xxxx)
+    if (code.startsWith('2013')) {
+      setState('Uttar Pradesh');
+      setCity('Gautam Buddha Nagar');
+    } else if (code.startsWith('11')) {
+      setState('Delhi');
+      setCity('New Delhi');
+    }
+
+    try {
+      const response = await fetch(`https://api.postalpincode.in/pincode/${code}`);
+      const data = await response.json();
+      if (data && data[0] && data[0].Status === 'Success') {
+        const postOffice = data[0].PostOffice?.[0];
+        if (postOffice) {
+          if (postOffice.State) setState(postOffice.State);
+          if (postOffice.District) setCity(postOffice.District);
+        }
+      }
+    } catch (error) {
+      console.log('Error fetching PIN code details:', error);
+    }
+  };
+
+  const handlePincodeChange = (text: string) => {
+    const filtered = text.replace(/[^0-9]/g, '');
+    setPincode(filtered);
+    if (filtered.length === 6) {
+      void fetchLocationFromPincode(filtered);
+    }
+  };
 
   async function handleSubmit() {
     if (!name.trim() || !mobile.trim() || password.length < 8) {
       Alert.alert('Validation', 'Please fill in Name, Mobile, and Password (min 8 chars).');
       return;
     }
-    if (!businessName.trim()) {
-      Alert.alert('Validation', 'Business name is required.');
-      return;
-    }
-    if (gst.trim()) {
-      if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gst.trim().toUpperCase())) {
-        Alert.alert('Validation', 'Enter a valid 15-character GSTIN (e.g. 27AABCT1234H1Z5).');
-        return;
-      }
-    }
-    if (!state.trim() || !city.trim()) {
-      Alert.alert('Validation', 'Please select City and State.');
-      return;
-    }
+    
     setLoading(true);
     try {
-      // Parse city and state
-      const cityVal  = city.trim();
-      const stateVal = state.trim();
+      if (isBusiness) {
+        if (!businessName.trim()) {
+          Alert.alert('Validation', 'Business name is required.');
+          setLoading(false);
+          return;
+        }
+        if (gst.trim()) {
+          if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gst.trim().toUpperCase())) {
+            Alert.alert('Validation', 'Enter a valid 15-character GSTIN (e.g. 27AABCT1234H1Z5).');
+            setLoading(false);
+            return;
+          }
+        }
+        if (pincode.trim() && !/^\d{6}$/.test(pincode.trim())) {
+          Alert.alert('Validation', 'Enter a valid 6-digit Pincode.');
+          setLoading(false);
+          return;
+        }
+        if (!state.trim() || !city.trim()) {
+          Alert.alert('Validation', 'Please select City and State.');
+          setLoading(false);
+          return;
+        }
 
-      const res = await api.post<{
-        success: boolean;
-        data: { vendor_id: number; vendor_code: string; token?: string };
-      }>('/vendors/register', {
-        name:          name.trim(),
-        email:         email.trim().toLowerCase() || undefined,
-        phone:         mobile.trim(),
-        password,
-        business_name: businessName.trim(),
-        gstin:         gst.trim().toUpperCase() || undefined,
-        city:          cityVal,
-        state:         stateVal,
-      });
+        const cityVal  = city.trim();
+        const stateVal = state.trim();
 
-      // Store vendor_id so pending-approval can poll status
-      const vendorId = res.data.data.vendor_id;
-      await SecureStore.setItemAsync(VENDOR_ID_KEY, String(vendorId));
-      if (res.data.data.vendor_code) {
-        await SecureStore.setItemAsync(VENDOR_CODE_KEY, res.data.data.vendor_code);
-      }
-      if (gst.trim()) {
-        await SecureStore.setItemAsync(VENDOR_GSTIN_KEY, gst.trim().toUpperCase());
+        const res = await api.post<{
+          success: boolean;
+          data: { vendor_id: number; vendor_code: string; token?: string };
+        }>('/vendors/register', {
+          name:          name.trim(),
+          email:         email.trim().toLowerCase() || undefined,
+          phone:         mobile.trim(),
+          password,
+          business_name: businessName.trim(),
+          gstin:         gst.trim().toUpperCase() || undefined,
+          city:          cityVal,
+          state:         stateVal,
+          postal_code:   pincode.trim() || undefined,
+        });
+
+        const vendorId = res.data.data.vendor_id;
+        await SecureStore.setItemAsync(VENDOR_ID_KEY, String(vendorId));
+        if (res.data.data.vendor_code) {
+          await SecureStore.setItemAsync(VENDOR_CODE_KEY, res.data.data.vendor_code);
+        }
+        if (gst.trim()) {
+          await SecureStore.setItemAsync(VENDOR_GSTIN_KEY, gst.trim().toUpperCase());
+        } else {
+          await SecureStore.deleteItemAsync(VENDOR_GSTIN_KEY);
+        }
+
+        router.replace('/(auth)/pending-approval');
       } else {
-        await SecureStore.deleteItemAsync(VENDOR_GSTIN_KEY);
-      }
+        const res = await api.post<{
+          success: boolean;
+          data: { token: string; user: any };
+        }>('/auth/register', {
+          name: name.trim(),
+          email: email.trim().toLowerCase() || `${mobile.trim()}@ourth.com`,
+          phone: mobile.trim(),
+          password,
+          password_confirmation: password,
+          role: 'consumer',
+        });
 
-      router.replace('/(auth)/pending-approval');
+        await SecureStore.setItemAsync(TOKEN_KEY, res.data.data.token);
+        const { useAuthStore } = await import('@/lib/store');
+        useAuthStore.setState({ token: res.data.data.token, user: res.data.data.user, isLoading: false });
+        router.replace('/(tabs)');
+      }
     } catch (err: unknown) {
       Alert.alert('Registration Failed', err instanceof Error ? err.message : 'Something went wrong.');
     } finally {
@@ -141,27 +205,43 @@ export default function RegisterScreen() {
             />
           </Field>
 
-          <Field label="Business Name">
-            <TextInput
-              style={styles.input}
-              value={businessName}
-              onChangeText={setBusinessName}
-              placeholder="Asteria Xing's Shop"
-              placeholderTextColor="rgba(60,80,60,0.6)"
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, marginVertical: 8 }}>
+            <Text style={{ fontSize: 16, fontWeight: '700', color: '#2C1F13', fontFamily: 'IBM Plex Sans' }}>
+              Register as a Business / Vendor
+            </Text>
+            <Switch
+              value={isBusiness}
+              onValueChange={setIsBusiness}
+              trackColor={{ false: '#d1d5db', true: '#a7f3d0' }}
+              thumbColor={isBusiness ? '#1a6b5a' : '#9ca3af'}
             />
-          </Field>
+          </View>
 
-          <Field label="GST Number (optional)">
-            <TextInput
-              style={styles.input}
-              value={gst}
-              onChangeText={(t) => setGst(t.toUpperCase())}
-              placeholder="27AABCT1234H1Z5"
-              placeholderTextColor="rgba(60,80,60,0.6)"
-              autoCapitalize="characters"
-              maxLength={15}
-            />
-          </Field>
+          {isBusiness && (
+            <>
+              <Field label="Business Name">
+                <TextInput
+                  style={styles.input}
+                  value={businessName}
+                  onChangeText={setBusinessName}
+                  placeholder="Asteria Xing's Shop"
+                  placeholderTextColor="rgba(60,80,60,0.6)"
+                />
+              </Field>
+
+              <Field label="GST Number (optional)">
+                <TextInput
+                  style={styles.input}
+                  value={gst}
+                  onChangeText={(t) => setGst(t.toUpperCase())}
+                  placeholder="27AABCT1234H1Z5"
+                  placeholderTextColor="rgba(60,80,60,0.6)"
+                  autoCapitalize="characters"
+                  maxLength={15}
+                />
+              </Field>
+            </>
+          )}
 
           <Field label="Mobile Number">
             <TextInput
@@ -186,29 +266,45 @@ export default function RegisterScreen() {
             />
           </Field>
 
-          <Field label="City, State *">
-            <TouchableOpacity
-              style={styles.pickerBtn}
-              onPress={() => setShowStatePicker(true)}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.pickerBtnText, !state && styles.pickerBtnPlaceholder]}>
-                {state || 'Select State'}
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.pickerBtn, { marginTop: 8 }]}
-              onPress={() => {
-                if (!state) { Alert.alert('Select State', 'Please select a state first.'); return; }
-                setShowCityPicker(true);
-              }}
-              activeOpacity={0.75}
-            >
-              <Text style={[styles.pickerBtnText, !city && styles.pickerBtnPlaceholder]}>
-                {city || 'Select City'}
-              </Text>
-            </TouchableOpacity>
-          </Field>
+          {isBusiness && (
+            <>
+              <Field label="Pincode (auto-fills City & State)">
+                <TextInput
+                  style={styles.input}
+                  value={pincode}
+                  onChangeText={handlePincodeChange}
+                  placeholder="e.g. 110001"
+                  placeholderTextColor="rgba(60,80,60,0.6)"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+              </Field>
+
+              <Field label="City, State *">
+                <TouchableOpacity
+                  style={styles.pickerBtn}
+                  onPress={() => setShowStatePicker(true)}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.pickerBtnText, !state && styles.pickerBtnPlaceholder]}>
+                    {state || 'Select State'}
+                  </Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.pickerBtn, { marginTop: 8 }]}
+                  onPress={() => {
+                    if (!state) { Alert.alert('Select State', 'Please select a state first.'); return; }
+                    setShowCityPicker(true);
+                  }}
+                  activeOpacity={0.75}
+                >
+                  <Text style={[styles.pickerBtnText, !city && styles.pickerBtnPlaceholder]}>
+                    {city || 'Select City'}
+                  </Text>
+                </TouchableOpacity>
+              </Field>
+            </>
+          )}
 
           <Field label="Create Password">
             <TextInput
@@ -222,7 +318,9 @@ export default function RegisterScreen() {
           </Field>
 
           <Text style={styles.disclaimer}>
-            By registering, your account will be reviewed by OURTH team. You'll be notified once approved.
+            {isBusiness 
+              ? "By registering, your account will be reviewed by OURTH team. You'll be notified once approved."
+              : "By creating an account you agree to our Terms of Service and Privacy Policy."}
           </Text>
 
           <TouchableOpacity
@@ -234,7 +332,9 @@ export default function RegisterScreen() {
             {loading ? (
               <ActivityIndicator color="#1A5C2E" />
             ) : (
-              <Text style={styles.submitText}>Submit for Approval</Text>
+              <Text style={styles.submitText}>
+                {isBusiness ? "Submit for Approval" : "Create Account"}
+              </Text>
             )}
           </TouchableOpacity>
         </ScrollView>

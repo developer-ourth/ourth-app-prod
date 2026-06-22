@@ -14,6 +14,7 @@ import { useRouter } from 'expo-router';
 import { Heart, ChevronLeft } from '@/components/icons';
 import { fixAssetUrl } from '@/lib/api';
 import { useCollectionsStore } from '@/lib/collectionsStore';
+import { useAuthStore } from '@/lib/store';
 import type { Product } from '@/lib/types';
 
 const BG_IMAGE = require('../../assets/Frame16.png');
@@ -22,6 +23,8 @@ const CARD_W = Math.floor((Dimensions.get('window').width - 36) / 2);
 export default function CollectionsScreen() {
   const router = useRouter();
   const { liked, toggle, syncFromApi } = useCollectionsStore();
+  const { user } = useAuthStore();
+  const isB2B = user?.role === 'vendor';
   const products = Object.values(liked) as Product[];
 
   useEffect(() => {
@@ -29,9 +32,11 @@ export default function CollectionsScreen() {
   }, []);
 
   function renderItem({ item }: { item: Product }) {
-    const price = item.discounted_price
-      ? parseFloat(item.discounted_price)
-      : parseFloat(item.base_price);
+    const price = isB2B && item.wholesale_price !== null && item.wholesale_price !== undefined
+      ? parseFloat(item.wholesale_price)
+      : (item.discounted_price
+        ? parseFloat(item.discounted_price)
+        : parseFloat(item.base_price));
     const rating = item.vendor?.average_rating;
 
     return (
@@ -60,7 +65,12 @@ export default function CollectionsScreen() {
             >
               <Heart size={24} color="#0d9488" fill="#0d9488" />
             </TouchableOpacity>
-            <Text style={styles.productPrice}>₹{Math.round(price)}</Text>
+            <Text style={styles.productPrice}>
+              ₹{Math.round(price)}
+              {isB2B && item.wholesale_price !== null && (
+                <Text style={{ fontSize: 8, color: '#0d9488', fontWeight: 'bold' }}> B2B</Text>
+              )}
+            </Text>
           </View>
           {rating != null && (
             <Text style={styles.productRating}>{rating.toFixed(1)}</Text>

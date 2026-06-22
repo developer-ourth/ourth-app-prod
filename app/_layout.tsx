@@ -9,11 +9,15 @@ import { registerForPushNotifications, isExpoGo } from '@/lib/pushNotifications'
 import ThemedAlertHost from '@/components/ui/ThemedAlertHost';
 
 // Initialize Sentry crash analytics
-Sentry.init({
-  dsn: process.env.EXPO_PUBLIC_SENTRY_DSN || 'https://placeholder-dsn@o0.ingest.sentry.io/0',
-  debug: false,
-  tracesSampleRate: 1.0,
-});
+const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
+const isSentryEnabled = sentryDsn && sentryDsn !== 'https://placeholder-dsn@o0.ingest.sentry.io/0';
+if (isSentryEnabled) {
+  Sentry.init({
+    dsn: sentryDsn,
+    debug: false,
+    tracesSampleRate: 1.0,
+  });
+}
 
 /**
  * Root layout — initialises auth state and redirects:
@@ -88,4 +92,4 @@ function RootLayout() {
   );
 }
 
-export default Sentry.wrap(RootLayout);
+export default isSentryEnabled ? Sentry.wrap(RootLayout) : RootLayout;

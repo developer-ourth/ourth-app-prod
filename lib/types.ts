@@ -9,6 +9,7 @@ export interface AuthUser {
   vendor_id: number | null;
   business_name?: string;
   gstin?: string;
+  kyc_status?: string | null;
 }
 
 export interface AuthState {
@@ -70,6 +71,8 @@ export interface Product {
   category_label: string | null;
   base_price: string;
   discounted_price: string | null;
+  wholesale_price: string | null;
+  min_order_quantity: number;
   primary_image_url: string | null;
   secondary_images: string[];
   unit: string;
@@ -91,7 +94,7 @@ export interface CartItem {
   quantity: number;
   unit_price: string;
   total_price: string;
-  product?: Pick<Product, 'id' | 'name' | 'primary_image_url' | 'base_price' | 'discounted_price'>;
+  product?: Pick<Product, 'id' | 'name' | 'primary_image_url' | 'base_price' | 'discounted_price' | 'wholesale_price' | 'min_order_quantity'>;
   productPack?: ProductPack | null;
 }
 

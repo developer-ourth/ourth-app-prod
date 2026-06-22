@@ -31,18 +31,20 @@ const USE_NATIVE_BLUR = Platform.OS !== 'android';
 export default function HomeScreen() {
   const router = useRouter();
   const { user } = useAuthStore();
+  const isB2B = user?.role === 'vendor';
   const { liked, toggle } = useCollectionsStore();
   const { addItem } = useCartStore();
 
   const handleAddToCart = useCallback(async (item: Product) => {
     try {
-      await addItem(item.id);
+      const minQty = isB2B ? (item.min_order_quantity ?? 1) : 1;
+      await addItem(item.id, minQty);
       setAddedProductName(item.name);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not add item.';
       Alert.alert('Error', msg);
     }
-  }, [addItem]);
+  }, [addItem, isB2B]);
 
   const [categories, setCategories] = useState<Category[]>([]);
   const [products, setProducts]     = useState<Product[]>([]);
@@ -91,9 +93,11 @@ export default function HomeScreen() {
 
   function renderProduct({ item }: { item: Product }) {
     const isLiked = Boolean(liked[item.id]);
-    const price   = item.discounted_price
-      ? parseFloat(item.discounted_price)
-      : parseFloat(item.base_price);
+    const price   = isB2B && item.wholesale_price !== null && item.wholesale_price !== undefined
+      ? parseFloat(item.wholesale_price)
+      : (item.discounted_price
+        ? parseFloat(item.discounted_price)
+        : parseFloat(item.base_price));
     const rating  = item.vendor?.average_rating;
 
     return (
@@ -140,7 +144,12 @@ export default function HomeScreen() {
           {rating != null && (
             <Text style={styles.productRating}>{rating.toFixed(1)}</Text>
           )}
-          <Text style={styles.productPrice}>₹{Math.round(price)}</Text>
+          <Text style={styles.productPrice}>
+            ₹{Math.round(price)}
+            {isB2B && item.wholesale_price !== null && (
+              <Text style={{ fontSize: 8, color: '#1a6b5a', fontWeight: 'bold' }}> B2B</Text>
+            )}
+          </Text>
         </View>
         {/* ADD button — overlaps bottom-right corner */}
         <TouchableOpacity
@@ -276,7 +285,7 @@ const styles = StyleSheet.create({
   brandName:        { fontSize: 16, fontWeight: '700', color: '#0f766e' },
   catItem:          { alignItems: 'center', gap: 4, paddingVertical: 6, marginTop: 12, },
   catEmoji:         { fontSize: 28, opacity: 1 },
-  catIcon:          { width: 36, height: 36, opacity: 0.55 },
+  catIcon:          { width: 36, height: 36, opacity: 0.4, tintColor: '#1a6b5a' },
   catIconActive:    { tintColor: '#1a6b5a', opacity: 1 },
   catLabel:         { fontSize: 16, color: '#4b5563' },
   catLabelActive:   { fontWeight: '700', color: '#111827' },

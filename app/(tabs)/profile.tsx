@@ -95,6 +95,9 @@ export default function ProfileScreen() {
     { label: 'Your Collections',  onPress: () => router.push('/(tabs)/collections') },
     { label: 'Payment Methods',   onPress: () => router.push('/settings/payment-methods') },
     { label: 'Tax & GST Settings',onPress: () => router.push('/settings/tax-settings') },
+    ...(profile?.role === 'vendor' ? [
+      { label: 'Business KYC Verification', onPress: () => router.push('/settings/kyc') }
+    ] : []),
     { label: 'Your Refunds',      onPress: () => {} },
   ];
 
