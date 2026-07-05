@@ -51,7 +51,7 @@ export default function HomeScreen() {
   const isB2B = user?.role === 'vendor';
   const { liked, toggle } = useCollectionsStore();
   const { addItem } = useCartStore();
-  const { appBackgroundColor, headerBackgroundColor, bannerTagline, bannerSubtagline, bannerImageUrl, fetchSettings } = useThemeStore();
+  const { appBackgroundColor, headerBackgroundColor, appTextColor, bannerTagline, bannerSubtagline, bannerImageUrl, fetchSettings } = useThemeStore();
 
   const isVideo = bannerImageUrl ? /\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(bannerImageUrl) : false;
   const resolvedVideoUrl = isVideo ? fixAssetUrl(bannerImageUrl) : null;
@@ -229,7 +229,7 @@ export default function HomeScreen() {
               <Text style={{ fontSize: 36 }}>🌿</Text>
             </View>
           )}
-          <Text style={styles.productName} numberOfLines={1}>{item.name}</Text>
+          <Text style={[styles.productName, { color: appTextColor }]} numberOfLines={1}>{item.name}</Text>
           {rating != null && (
             <Text style={styles.productRating}>{rating.toFixed(1)}</Text>
           )}

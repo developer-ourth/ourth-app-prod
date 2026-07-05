@@ -4,6 +4,7 @@ import api from './api';
 interface ThemeState {
   appBackgroundColor: string;
   headerBackgroundColor: string;
+  appTextColor: string;
   bannerTagline: string;
   bannerSubtagline: string;
   bannerImageUrl: string;
@@ -13,6 +14,7 @@ interface ThemeState {
 export const useThemeStore = create<ThemeState>((set) => ({
   appBackgroundColor: '#FAF8F3', // Default
   headerBackgroundColor: 'rgba(13,58,39,0.85)', // Default
+  appTextColor: '#2C1F13', // Default
   bannerTagline: 'Healing OURTH Tableware', // Default
   bannerSubtagline: '100% Organic, Natural & Compostable', // Default
   bannerImageUrl: '', // Default
@@ -23,6 +25,7 @@ export const useThemeStore = create<ThemeState>((set) => ({
         set({
           appBackgroundColor: res.data.app_background_color ?? '#FAF8F3',
           headerBackgroundColor: res.data.header_background_color ?? '#0d3a27',
+          appTextColor: res.data.app_text_color ?? '#2C1F13',
           bannerTagline: res.data.banner_tagline ?? '',
           bannerSubtagline: res.data.banner_subtagline ?? '',
           bannerImageUrl: res.data.banner_image_url ?? '',
