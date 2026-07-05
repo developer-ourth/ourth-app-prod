@@ -36,10 +36,13 @@ import {
   ExternalLink as _ExternalLink,
   Leaf as _Leaf,
   Pencil as _Pencil,
+  Mic as _Mic,
 } from 'lucide-react-native';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyIcon = React.ComponentType<any>;
+
+export const Mic        = _Mic        as AnyIcon;
 
 export const Home       = _Home       as AnyIcon;
 export const ShoppingBag= _ShoppingBag as AnyIcon;

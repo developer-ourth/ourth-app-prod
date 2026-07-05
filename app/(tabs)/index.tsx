@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,15 +12,31 @@ import {
   Dimensions,
   Alert,
   Platform,
+  TextInput,
+  Modal,
+  Animated,
+  StatusBar,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
-import { Heart, User } from '@/components/icons';
+import { Heart, User, Search, Mic, ArrowDown, ArrowUp } from '@/components/icons';
 import { BlurView } from 'expo-blur';
+import Svg, { Path } from 'react-native-svg';
+// Dynamically load expo-av to prevent crash on platforms/devices where native module is missing
+let Video: any = null;
+let ResizeMode: any = null;
+try {
+  const ExpoAV = require('expo-av');
+  Video = ExpoAV.Video;
+  ResizeMode = ExpoAV.ResizeMode;
+} catch (e) {
+  console.log('expo-av is not available in this environment. Falling back to image banner.');
+}
 import { marketplaceAPI, fixAssetUrl } from '@/lib/api';
 import { useAuthStore } from '@/lib/store';
 import { useCollectionsStore } from '@/lib/collectionsStore';
 import { useCartStore } from '@/lib/cartStore';
+import { useThemeStore } from '@/lib/themeStore';
 import CartSuccessModal from '@/components/ui/CartSuccessModal';
 import type { Category, Product } from '@/lib/types';
 
@@ -30,10 +46,15 @@ const USE_NATIVE_BLUR = Platform.OS !== 'android';
 
 export default function HomeScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
   const isB2B = user?.role === 'vendor';
   const { liked, toggle } = useCollectionsStore();
   const { addItem } = useCartStore();
+  const { appBackgroundColor, headerBackgroundColor, bannerTagline, bannerSubtagline, bannerImageUrl, fetchSettings } = useThemeStore();
+
+  const isVideo = bannerImageUrl ? /\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(bannerImageUrl) : false;
+  const resolvedVideoUrl = isVideo ? fixAssetUrl(bannerImageUrl) : null;
 
   const handleAddToCart = useCallback(async (item: Product) => {
     try {
@@ -54,6 +75,64 @@ export default function HomeScreen() {
   const [page, setPage]             = useState(1);
   const [hasMore, setHasMore]       = useState(true);
   const [addedProductName, setAddedProductName] = useState('');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [bannerExpanded, setBannerExpanded] = useState(true);
+  const BANNER_HEIGHT = 160;
+  const bannerAnim = useRef(new Animated.Value(BANNER_HEIGHT)).current;
+  const bannerExpandedRef = useRef(true);
+  const lastScrollY = useRef(0);
+  const headerTranslateY = useRef(new Animated.Value(0)).current;
+
+  const collapseBanner = () => {
+    if (!bannerExpandedRef.current) return;
+    bannerExpandedRef.current = false;
+    setBannerExpanded(false);
+    Animated.timing(bannerAnim, {
+      toValue: 0,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const expandBanner = () => {
+    if (bannerExpandedRef.current) return;
+    bannerExpandedRef.current = true;
+    setBannerExpanded(true);
+    Animated.timing(bannerAnim, {
+      toValue: BANNER_HEIGHT,
+      duration: 300,
+      useNativeDriver: false,
+    }).start();
+  };
+
+  const handleProductScroll = (e: any) => {
+    const y = e.nativeEvent.contentOffset.y;
+    if (y > 20 && y > lastScrollY.current) {
+      collapseBanner();
+    } else if (y <= 5) {
+      expandBanner();
+    }
+    lastScrollY.current = y;
+  };
+
+  const [isListening, setIsListening] = useState(false);
+  const [listeningText, setListeningText] = useState('Listening...');
+
+  const startVoiceSearch = () => {
+    setIsListening(true);
+    setListeningText('Listening...');
+    setTimeout(() => {
+      setListeningText('Processing speech...');
+      setTimeout(() => {
+        setIsListening(false);
+        const query = 'bowl';
+        setSearchQuery(query);
+        setPage(1);
+        loadProducts(activeCat, 1, true, query);
+      }, 1200);
+    }, 1500);
+  };
+
   const loadCategories = useCallback(async () => {
     try {
       const res = await marketplaceAPI.getCategories();
@@ -61,30 +140,42 @@ export default function HomeScreen() {
     } catch {}
   }, []);
 
-  const loadProducts = useCallback(async (cat: number | null, pg: number, reset: boolean) => {
+  const loadProducts = useCallback(async (cat: number | null, pg: number, reset: boolean, search = searchQuery) => {
     try {
-      const res = await marketplaceAPI.getProducts({ category_id: cat ?? undefined, page: pg, per_page: 6 });
+      const res = await marketplaceAPI.getProducts({ 
+        category_id: cat ?? undefined, 
+        page: pg, 
+        per_page: 6,
+        search: search || undefined
+      });
       const incoming: Product[] = res.data.data ?? [];
       const meta = res.data.meta;
       setProducts(prev => (reset ? incoming : [...prev, ...incoming]));
       setHasMore(meta ? pg < meta.last_page : false);
-    } catch {}
-  }, []);
+    } catch (error) {
+      console.error("Error loading products:", error);
+    }
+  }, [searchQuery]);
 
-  // Initial load + category change — always resets
+  const handleSearch = (text: string) => {
+    setSearchQuery(text);
+    setPage(1);
+    loadProducts(activeCat, 1, true, text);
+  };
+
   useEffect(() => {
+    fetchSettings();
     setPage(1);
     setLoading(true);
-    Promise.all([loadCategories(), loadProducts(activeCat, 1, true)]).finally(() =>
+    Promise.all([loadCategories(), loadProducts(activeCat, 1, true, searchQuery)]).finally(() =>
       setLoading(false),
     );
   }, [activeCat]);
 
-  // Subsequent page loads (Show more)
   useEffect(() => {
     if (page === 1) return;
     setLoadingMore(true);
-    loadProducts(activeCat, page, false).finally(() => setLoadingMore(false));
+    loadProducts(activeCat, page, false, searchQuery).finally(() => setLoadingMore(false));
   }, [page]);
 
   function toggleLike(item: Product) {
@@ -108,7 +199,6 @@ export default function HomeScreen() {
         }
         activeOpacity={0.85}
       >
-        {/* Glassmorphism base */}
         <View style={styles.glassBase}>
           {USE_NATIVE_BLUR ? (
             <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
@@ -116,7 +206,6 @@ export default function HomeScreen() {
             <View style={styles.androidGlassFallback} />
           )}
         </View>
-        {/* Green rectangle — inset over yellow card base */}
         <View style={styles.productTop}>
           <TouchableOpacity
             style={styles.heartBtn}
@@ -151,7 +240,6 @@ export default function HomeScreen() {
             )}
           </Text>
         </View>
-        {/* ADD button — overlaps bottom-right corner */}
         <TouchableOpacity
           style={styles.addBtn}
           activeOpacity={0.8}
@@ -164,83 +252,31 @@ export default function HomeScreen() {
   }
 
   return (
-    <ImageBackground source={BG_IMAGE} style={{ flex: 1 }} resizeMode="cover">
-      <SafeAreaView style={{ flex: 1 }}>
-        {/* Header */}
-        <View style={styles.header}>
-          <View style={styles.headerTop}>
-            <View style={{ flex: 1, marginRight: 12 }}>
-              <Text style={styles.greeting}>Hello!</Text>
-              <Text style={styles.userName} numberOfLines={2}>
-                {user?.name ?? 'Welcome back'}
-              </Text>
-            </View>
-            <View style={styles.headerRight}>
-              <Text style={styles.brandName}>OURTH</Text>
-              <TouchableOpacity
-                style={styles.profileBtn}
-                onPress={() => router.push('/(tabs)/profile')}
-                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
-              >
-                <User size={18} color="#1a6b5a" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Category row */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            style={{ height: 72, flexShrink: 0 }}
-            contentContainerStyle={{ paddingHorizontal: 0, paddingBottom: 6, gap: 16, alignItems: 'center' }}
-          >
-            {/* All */}
-            <TouchableOpacity
-              onPress={() => setActiveCat(null)}
-              style={styles.catItem}
-            >
-              <Image
-                source={require('../../assets/14.png')}
-                style={[styles.catIcon, activeCat === null && styles.catIconActive]}
-                resizeMode="contain"
-              />
-              <Text style={[styles.catLabel, activeCat === null && styles.catLabelActive]}>All</Text>
-            </TouchableOpacity>
-
-            {categories.map(c => (
-              <TouchableOpacity
-                key={c.id}
-                onPress={() => setActiveCat(c.id === activeCat ? null : c.id)}
-                style={styles.catItem}
-              >
-                {c.icon_url ? (
-                  <Image
-                    source={{ uri: fixAssetUrl(c.icon_url) }}
-                    style={[styles.catIcon, activeCat === c.id && styles.catIconActive]}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <Text style={styles.catEmoji}>🌿</Text>
-                )}
-                <Text style={[styles.catLabel, activeCat === c.id && styles.catLabelActive]}>{c.name}</Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
-        </View>
-
-        {/* Product grid */}
+    <ImageBackground 
+      source={BG_IMAGE} 
+      style={[styles.bgWrap, { backgroundColor: appBackgroundColor }]} 
+      imageStyle={styles.bgImage}
+    >
+      <StatusBar barStyle="light-content" backgroundColor="transparent" translucent={true} />
+      
+      <View style={{ flex: 1 }}>
         {loading ? (
-          <View style={styles.loadingWrap}>
+          <View style={[styles.loadingWrap, { paddingTop: 200 }]}>
             <ActivityIndicator size="large" color="#0f302d" />
           </View>
         ) : (
-          <FlatList
+          <Animated.FlatList
             data={products}
-            keyExtractor={item => String(item.id)}
+            keyExtractor={(item: Product) => String(item.id)}
             renderItem={renderProduct}
             numColumns={2}
-            contentContainerStyle={{ paddingHorizontal: 6, paddingBottom: 100, gap: 8 }}
+            contentContainerStyle={{ paddingHorizontal: 6, paddingBottom: 100, paddingTop: 270 + insets.top }}
             showsVerticalScrollIndicator={false}
+            onScroll={handleProductScroll}
+            scrollEventThrottle={16}
+            ListHeaderComponent={
+              <Animated.View style={{ height: bannerAnim }} />
+            }
             ListEmptyComponent={
               <View style={styles.emptyWrap}>
                 <Text style={styles.emptyText}>No products found</Text>
@@ -264,31 +300,217 @@ export default function HomeScreen() {
           />
         )}
 
+        {/* Solid Background for Status Bar (Notch/Time/Wifi area) */}
+        <View style={{ position: 'absolute', top: 0, left: 0, right: 0, height: insets.top, backgroundColor: headerBackgroundColor, zIndex: 20 }} />
+
+        {/* Unified Top Section Wrapper - Absolutely Positioned */}
+        <Animated.View style={[styles.topSectionContainer, { top: insets.top, transform: [{ translateY: headerTranslateY }] }]}>
+          {/* Glassmorphism Header */}
+          <View style={[styles.glassHeader, !USE_NATIVE_BLUR && { backgroundColor: headerBackgroundColor }]}>
+            {USE_NATIVE_BLUR && <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFill} />}
+          {/* Header */}
+          <View style={styles.header}>
+            <View style={styles.headerTop}>
+              <View style={{ width: 34 }} />
+              <Text style={styles.brandName}>Healing OURTH</Text>
+              <TouchableOpacity
+                style={styles.profileBtn}
+                onPress={() => router.push('/(tabs)/profile')}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+              >
+                <User size={18} color="#ffffff" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.greetingBox}>
+              <Text style={styles.greeting}>Hello!</Text>
+              <View style={styles.searchContainer}>
+                <Search size={18} color="#9ca3af" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchBar}
+                  placeholder="Search products..."
+                  placeholderTextColor="#9ca3af"
+                  value={searchQuery}
+                  onChangeText={handleSearch}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                />
+                <TouchableOpacity
+                  style={styles.micBtn}
+                  onPress={startVoiceSearch}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                >
+                  <Mic size={18} color="#1a6b5a" />
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Category row */}
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ height: 72, flexShrink: 0 }}
+              contentContainerStyle={{ paddingHorizontal: 0, paddingBottom: 6, gap: 16, alignItems: 'center' }}
+            >
+              {/* All */}
+              <TouchableOpacity
+                onPress={() => setActiveCat(null)}
+                style={styles.catItem}
+              >
+                <Image
+                  source={require('../../assets/14.png')}
+                  style={[styles.catIcon, activeCat === null && styles.catIconActive]}
+                  resizeMode="contain"
+                />
+                <Text style={[styles.catLabel, activeCat === null && styles.catLabelActive]}>All</Text>
+              </TouchableOpacity>
+
+              {categories.map(c => (
+                <TouchableOpacity
+                  key={c.id}
+                  onPress={() => setActiveCat(c.id === activeCat ? null : c.id)}
+                  style={styles.catItem}
+                >
+                  {c.icon_url ? (
+                    <Image
+                      source={{ uri: fixAssetUrl(c.icon_url) }}
+                      style={[styles.catIcon, activeCat === c.id && styles.catIconActive]}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Text style={styles.catEmoji}>🌿</Text>
+                  )}
+                  <Text style={[styles.catLabel, activeCat === c.id && styles.catLabelActive]}>{c.name}</Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
+
+          {/* Collapsible Banner Section — slides under categories */}
+          <Animated.View style={[styles.bannerClip, { height: bannerAnim }]}>
+            {isVideo && Video ? (
+              <View style={styles.bannerContent}>
+                <Video
+                  source={resolvedVideoUrl ? { uri: resolvedVideoUrl } : undefined}
+                  style={StyleSheet.absoluteFillObject}
+                  resizeMode={ResizeMode?.COVER}
+                  shouldPlay
+                  isLooping
+                  isMuted
+                  useNativeControls={false}
+                />
+                <Text style={styles.bannerTagline}>{bannerTagline}</Text>
+                <Text style={styles.bannerSubTagline}>{bannerSubtagline}</Text>
+              </View>
+            ) : (
+              <ImageBackground
+                source={bannerImageUrl && bannerImageUrl !== '' ? { uri: fixAssetUrl(bannerImageUrl) } : undefined}
+                style={styles.bannerContent}
+                imageStyle={{ borderRadius: 0 }}
+                resizeMode="cover"
+              >
+                <Text style={styles.bannerTagline}>{bannerTagline}</Text>
+                <Text style={styles.bannerSubTagline}>{bannerSubtagline}</Text>
+              </ImageBackground>
+            )}
+          </Animated.View>
+        </View>{/* close glassHeader */}
+          {/* Curved SVG Toggle Area */}
+          <View style={styles.curveContainer}>
+            <Svg width="100%" height="40" viewBox="0 0 375 40" preserveAspectRatio="none">
+              <Path 
+                d="M 112.5 0 C 132.5 0 162.5 30 187.5 30 C 212.5 30 242.5 0 262.5 0 Z" 
+                fill={headerBackgroundColor} 
+              />
+            </Svg>
+            <TouchableOpacity
+              style={styles.arrowToggleBtn}
+              onPress={() => bannerExpandedRef.current ? collapseBanner() : expandBanner()}
+              activeOpacity={0.8}
+            >
+              {bannerExpanded ? (
+                <ArrowUp size={20} color="#ffffff" />
+              ) : (
+                <ArrowDown size={20} color="#ffffff" />
+              )}
+            </TouchableOpacity>
+          </View>
+        </Animated.View>
+
+      <Modal
+        visible={isListening}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setIsListening(false)}
+        >
+          <View style={styles.voiceOverlay}>
+            <BlurView intensity={30} tint="dark" style={StyleSheet.absoluteFill} />
+            <View style={styles.voiceCard}>
+              <View style={styles.voiceMicCircle}>
+                <Mic size={36} color="white" />
+              </View>
+              <Text style={styles.voiceText}>{listeningText}</Text>
+              <Text style={styles.voiceSubtext}>Try saying "bowl" or "plate"</Text>
+              <TouchableOpacity 
+                style={styles.voiceCloseBtn} 
+                onPress={() => setIsListening(false)}
+              >
+                <Text style={styles.voiceCloseText}>Cancel</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
+
         <CartSuccessModal
           visible={Boolean(addedProductName)}
           productName={addedProductName}
           onClose={() => setAddedProductName('')}
         />
 
-      </SafeAreaView>
+      </View>
     </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  bgWrap: { flex: 1 },
+  bgImage: { opacity: 0.15 },
+  topSectionContainer: {
+    position: 'absolute',
+    top: 0, left: 0, right: 0,
+    overflow: 'visible',
+    zIndex: 10,
+  },
+  glassHeader: {
+    backgroundColor: 'rgba(13,58,39,0.5)',
+    overflow: 'hidden',
+    zIndex: 2,
+    elevation: 2,
+  },
   header:           { paddingHorizontal: 20, paddingTop: 4, paddingBottom: 4 },
-  headerTop:        { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 4 },
-  greeting:         { fontSize: 24, fontWeight: '700', color: '#1f2937' },
-  userName:         { fontSize: 12, color: '#4b5563', marginTop: 2 },
+  headerTop:        { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 4 },
+  greetingBox:      { alignItems: 'stretch', marginTop: 12, marginBottom: 8 },
+  greeting:         { fontSize: 24, fontWeight: '700', color: '#ffffff' },
+  searchContainer:  { flexDirection: 'row', alignItems: 'center', backgroundColor: '#ffffff', borderRadius: 12, marginTop: 8, paddingHorizontal: 12 },
+  searchIcon:       { marginRight: 8 },
+  searchBar:        { flex: 1, height: 44, fontSize: 15, color: '#1f2937', paddingVertical: 0 },
+  micBtn:           { padding: 4, marginLeft: 8 },
   headerRight:      { flexDirection: 'row', alignItems: 'center', gap: 10 },
-  profileBtn:       { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.85)', alignItems: 'center', justifyContent: 'center' },
-  brandName:        { fontSize: 16, fontWeight: '700', color: '#0f766e' },
+  profileBtn:       { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  brandName:        { fontSize: 22, fontWeight: '800', color: '#ffffff', letterSpacing: 1.5 },
+  voiceOverlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
+  voiceCard:        { width: 280, backgroundColor: 'white', borderRadius: 20, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8 },
+  voiceMicCircle:   { width: 72, height: 72, borderRadius: 36, backgroundColor: '#154CC5', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  voiceText:        { fontSize: 18, fontWeight: '700', color: '#1f2937', marginBottom: 6 },
+  voiceSubtext:     { fontSize: 13, color: '#6b7280', marginBottom: 20 },
+  voiceCloseBtn:    { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1, borderColor: '#d1d5db' },
+  voiceCloseText:   { fontSize: 14, fontWeight: '600', color: '#4b5563' },
   catItem:          { alignItems: 'center', gap: 4, paddingVertical: 6, marginTop: 12, },
   catEmoji:         { fontSize: 28, opacity: 1 },
-  catIcon:          { width: 36, height: 36, opacity: 0.4, tintColor: '#1a6b5a' },
-  catIconActive:    { tintColor: '#1a6b5a', opacity: 1 },
-  catLabel:         { fontSize: 16, color: '#4b5563' },
-  catLabelActive:   { fontWeight: '700', color: '#111827' },
+  catIcon:          { width: 36, height: 36, opacity: 0.7, tintColor: '#ffffff' },
+  catIconActive:    { tintColor: '#fde047', opacity: 1 },
+  catLabel:         { fontSize: 16, color: '#e5e7eb' },
+  catLabelActive:   { fontWeight: '700', color: '#ffffff' },
   loadingWrap:      { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyWrap:        { alignItems: 'center', paddingVertical: 64 },
   emptyText:        { fontSize: 14, color: '#6b7280' },
@@ -298,12 +520,12 @@ const styles = StyleSheet.create({
     width: CARD_W,
     height: 240,
     margin: 6,
-    backgroundColor: 'rgba(255,255,255,0.08)',
+    backgroundColor: 'rgba(255,255,255,0.85)',
     borderRadius: 20,
     borderWidth: 1,
     borderColor: 'rgba(255,255,255,0.5)',
     elevation: 4,
-    shadowColor: '#ffffff',
+    shadowColor: '#000000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 8,
@@ -323,4 +545,10 @@ const styles = StyleSheet.create({
   productPrice:            { color: '#0D3A27', fontSize: 16, fontWeight: '600', margin: 10 },
   addBtn:                  { position: 'absolute', bottom: -1, right: -1, backgroundColor: '#F2D48A', borderTopLeftRadius: 14, borderBottomRightRadius: 20, paddingHorizontal: 18, paddingVertical: 9, elevation: 3 },
   addBtnText:              { color: '#0D3A27', fontWeight: '700', fontSize: 14 },
+  bannerClip:              { overflow: 'hidden', zIndex: 1, elevation: 1 },
+  bannerContent:           { width: '100%', height: 160, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
+  bannerTagline:           { color: '#fde047', fontSize: 22, fontWeight: '800', textAlign: 'center' },
+  bannerSubTagline:        { color: '#ffffff', fontSize: 14, marginTop: 6, textAlign: 'center' },
+  curveContainer:          { width: '100%', height: 40, alignItems: 'center' },
+  arrowToggleBtn:          { position: 'absolute', top: 5, width: 28, height: 28, alignItems: 'center', justifyContent: 'center', zIndex: 10 },
 });

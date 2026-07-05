@@ -20,7 +20,13 @@ export function fixAssetUrl(url: string | null | undefined): string | undefined 
     const localHostBase = API_BASE_URL.replace('/api/v1', '');
     resolvedUrl = url.replace(/^https:\/\/.*\.laravel\.cloud/g, localHostBase);
   }
-  return resolvedUrl.replace(/http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/g, (_, host, port) => `http://10.0.2.2${port ?? ':8000'}`);
+  
+  // Extract host IP/domain dynamically from API_BASE_URL
+  const match = API_BASE_URL.match(/^https?:\/\/([^\/]+)/);
+  const hostBase = match ? match[1] : '10.0.2.2:8000';
+  const baseHostOnly = hostBase.split(':')[0];
+
+  return resolvedUrl.replace(/http:\/\/(localhost|127\.0\.0\.1)(:\d+)?/g, (_, host, port) => `http://${baseHostOnly}${port ?? ':8000'}`);
 }
 
 export const TOKEN_KEY      = 'ourth_auth_token';

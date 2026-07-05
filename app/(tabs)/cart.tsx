@@ -17,7 +17,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
-import RazorpayCheckout from 'react-native-razorpay';
+let RazorpayCheckout: any = null;
+try {
+  RazorpayCheckout = require('react-native-razorpay').default;
+} catch (e) {
+  // Silent fallback when running in Expo Go without native modules
+}
 import { ShoppingCart, ChevronLeft, Minus, Plus, Heart, ArrowUp, MapPin, ChevronRight, Trash2 } from '@/components/icons';
 import { fixAssetUrl, addressAPI, marketplaceAPI, orderAPI } from '@/lib/api';
 import { useCartStore } from '@/lib/cartStore';
