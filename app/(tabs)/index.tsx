@@ -37,7 +37,11 @@ import { useAuthStore } from '@/lib/store';
 import { useCollectionsStore } from '@/lib/collectionsStore';
 import { useCartStore } from '@/lib/cartStore';
 import { useThemeStore } from '@/lib/themeStore';
+import { useDebounce } from '@/lib/useDebounce';
 import CartSuccessModal from '@/components/ui/CartSuccessModal';
+import Skeleton from '@/components/ui/Skeleton';
+import { Image as ExpoImage } from 'expo-image';
+import Toast from 'react-native-toast-message';
 import type { Category, Product } from '@/lib/types';
 
 const BG_IMAGE = require('../../assets/Frame16.png');
@@ -63,7 +67,11 @@ export default function HomeScreen() {
       setAddedProductName(item.name);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not add item.';
-      Alert.alert('Error', msg);
+      Toast.show({
+        type: 'error',
+        text1: 'Error adding to cart',
+        text2: msg,
+      });
     }
   }, [addItem, isB2B]);
 
@@ -157,20 +165,24 @@ export default function HomeScreen() {
     }
   }, [searchQuery]);
 
+  const debouncedSearchQuery = useDebounce(searchQuery, 400);
+
   const handleSearch = (text: string) => {
     setSearchQuery(text);
-    setPage(1);
-    loadProducts(activeCat, 1, true, text);
   };
 
   useEffect(() => {
     fetchSettings();
+    loadCategories();
+  }, []);
+
+  useEffect(() => {
     setPage(1);
     setLoading(true);
-    Promise.all([loadCategories(), loadProducts(activeCat, 1, true, searchQuery)]).finally(() =>
+    loadProducts(activeCat, 1, true, debouncedSearchQuery).finally(() =>
       setLoading(false),
     );
-  }, [activeCat]);
+  }, [activeCat, debouncedSearchQuery]);
 
   useEffect(() => {
     if (page === 1) return;
@@ -219,10 +231,12 @@ export default function HomeScreen() {
             />
           </TouchableOpacity>
           {item.primary_image_url ? (
-            <Image
+            <ExpoImage
               source={{ uri: fixAssetUrl(item.primary_image_url) }}
               style={styles.productImage}
-              resizeMode="contain"
+              contentFit="contain"
+              transition={300}
+              cachePolicy="memory-disk"
             />
           ) : (
             <View style={styles.productImagePlaceholder}>
@@ -261,8 +275,12 @@ export default function HomeScreen() {
       
       <View style={{ flex: 1 }}>
         {loading ? (
-          <View style={[styles.loadingWrap, { paddingTop: 200 }]}>
-            <ActivityIndicator size="large" color="#0f302d" />
+          <View style={{ flexDirection: 'row', flexWrap: 'wrap', justifyContent: 'center', paddingTop: 270 + insets.top, paddingHorizontal: 6 }}>
+            {Array.from({ length: 6 }).map((_, i) => (
+              <View key={i} style={[styles.productCard, { backgroundColor: 'transparent', borderWidth: 0, shadowOpacity: 0, elevation: 0 }]}>
+                <Skeleton width="100%" height="100%" borderRadius={20} />
+              </View>
+            ))}
           </View>
         ) : (
           <Animated.FlatList
@@ -274,6 +292,10 @@ export default function HomeScreen() {
             showsVerticalScrollIndicator={false}
             onScroll={handleProductScroll}
             scrollEventThrottle={16}
+            initialNumToRender={6}
+            maxToRenderPerBatch={4}
+            windowSize={5}
+            removeClippedSubviews={true}
             ListHeaderComponent={
               <Animated.View style={{ height: bannerAnim }} />
             }

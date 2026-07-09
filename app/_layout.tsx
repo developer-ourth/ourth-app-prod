@@ -7,6 +7,8 @@ import * as Sentry from '@sentry/react-native';
 import { useAuthStore } from '@/lib/store';
 import { registerForPushNotifications, isExpoGo } from '@/lib/pushNotifications';
 import ThemedAlertHost from '@/components/ui/ThemedAlertHost';
+import Toast from 'react-native-toast-message';
+import { useNetInfo } from '@react-native-community/netinfo';
 
 // Initialize Sentry crash analytics
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
@@ -73,9 +75,16 @@ function RootLayout() {
     };
   }, [token]);
 
+  const netInfo = useNetInfo();
+
   return (
     <>
       <StatusBar style="auto" />
+      {netInfo.isConnected === false && (
+        <View style={{ backgroundColor: '#ef4444', paddingTop: 40, paddingBottom: 10, alignItems: 'center' }}>
+          <Text style={{ color: 'white', fontWeight: 'bold' }}>No internet connection. Showing cached data.</Text>
+        </View>
+      )}
       <Stack screenOptions={{ headerShown: false }}>
         <Stack.Screen name="(auth)" />
         <Stack.Screen name="(tabs)" />
@@ -88,6 +97,7 @@ function RootLayout() {
         <Stack.Screen name="settings/tax-settings" options={{ presentation: 'card' }} />
       </Stack>
       <ThemedAlertHost />
+      <Toast />
     </>
   );
 }
