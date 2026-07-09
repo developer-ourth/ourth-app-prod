@@ -4,7 +4,7 @@
     "slug": "ourth",
     "owner": "developer_ourth",
     "scheme": "ourth",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "orientation": "portrait",
     "icon": "./assets/logohoilp.png",
     "userInterfaceStyle": "light",
@@ -17,6 +17,9 @@
     "ios": {
       "bundleIdentifier": "com.ourth.mobile",
       "supportsTablet": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      },
       "config": {
         "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_API_KEY"
       }
