@@ -52,7 +52,8 @@ export default function HomeScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
-  const isB2B = user?.role === 'vendor';
+  // Temporarily disabled for now: B2B and B2C use the same rate.
+  const isB2B = false; // user?.role === 'vendor';
   const { liked, toggle } = useCollectionsStore();
   const { addItem } = useCartStore();
   const { appBackgroundColor, headerBackgroundColor, appTextColor, bannerTagline, bannerSubtagline, bannerImageUrl, fetchSettings } = useThemeStore();
@@ -62,8 +63,7 @@ export default function HomeScreen() {
 
   const handleAddToCart = useCallback(async (item: Product) => {
     try {
-      const minQty = isB2B ? (item.min_order_quantity ?? 1) : 1;
-      await addItem(item.id, minQty);
+      await addItem(item.id, 1);
       setAddedProductName(item.name);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not add item.';

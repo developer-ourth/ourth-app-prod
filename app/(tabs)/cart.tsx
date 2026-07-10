@@ -62,7 +62,8 @@ export default function CartScreen() {
   const router = useRouter();
   const { cart, loading, fetchCart, updateItem, removeItem, clearCart, addItem } = useCartStore();
   const { user } = useAuthStore();
-  const isB2B = user?.role === 'vendor';
+  // Temporarily disabled for now: B2B and B2C use the same rate.
+  const isB2B = false; // user?.role === 'vendor';
 
   const [placing, setPlacing] = useState(false);
 
@@ -359,9 +360,9 @@ export default function CartScreen() {
                             {item.productPack ? ` (${item.productPack.name})` : ''}
                           </Text>
                           <Text style={styles.itemUnits}>{item.quantity} units</Text>
-                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4, flexWrap: 'wrap' }}>
                             <TouchableOpacity onPress={() => router.push('/(tabs)/collections')}>
-                              <Text style={styles.addToCollection}>Add to your collection</Text>
+                              <Text style={styles.addToCollection}>Save to collection</Text>
                             </TouchableOpacity>
                             <TouchableOpacity onPress={() => handleRemoveItem(item)} style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                               <Trash2 size={12} color="#dc2626" fill="none" />

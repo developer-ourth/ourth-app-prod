@@ -20,7 +20,8 @@ export default function ProductDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router  = useRouter();
   const { user } = useAuthStore();
-  const isB2B = user?.role === 'vendor';
+  // Temporarily disabled for now: B2B and B2C use the same rate.
+  const isB2B = false; // user?.role === 'vendor';
 
   const [product, setProduct] = useState<Product | null>(null);
   const [loading, setLoading] = useState(true);
@@ -53,13 +54,13 @@ export default function ProductDetailScreen() {
   const handleAddToCart = useCallback(async () => {
     if (!product) { return; }
     try {
-      await addItem(product.id, minQty, selectedPackId);
+      await addItem(product.id, 1, selectedPackId);
       setAddedProductName(selectedPack ? `${product.name} (${selectedPack.name})` : product.name);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Could not add item.';
       Alert.alert('Error', msg);
     }
-  }, [product, addItem, selectedPackId, selectedPack, minQty]);
+  }, [product, addItem, selectedPackId, selectedPack]);
 
   const scrollY = useRef(new Animated.Value(0)).current;
 
@@ -126,7 +127,9 @@ export default function ProductDetailScreen() {
     : null;
 
   const price = selectedPack 
-    ? (selectedPack.discounted_price ?? selectedPack.base_price) 
+    ? (isB2B && selectedPack.wholesale_price !== null && selectedPack.wholesale_price !== undefined 
+        ? selectedPack.wholesale_price 
+        : (selectedPack.discounted_price ?? selectedPack.base_price))
     : (isB2B && product.wholesale_price !== null && product.wholesale_price !== undefined
         ? product.wholesale_price
         : (product.discounted_price ?? product.base_price ?? 0));

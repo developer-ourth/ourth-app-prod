@@ -56,6 +56,8 @@ export interface ProductPack {
   name: string;
   base_price: string;
   discounted_price: string | null;
+  wholesale_price?: string | null;
+  wholesale_discounted_price?: string | null;
   sku: string | null;
   stock_quantity: number;
   is_active: boolean;
