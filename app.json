@@ -6,11 +6,11 @@
     "scheme": "ourth",
     "version": "1.0.2",
     "orientation": "portrait",
-    "icon": "./assets/logohoilp.png",
+    "icon": "./assets/logof.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/logohoilp.png",
+      "image": "./assets/logof.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -27,7 +27,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logohoilp.png",
+        "foregroundImage": "./assets/logof.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
@@ -52,7 +52,7 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/logohoilp.png",
+          "icon": "./assets/logof.png",
           "color": "#1a6b5a",
           "sounds": []
         }

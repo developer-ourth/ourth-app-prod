@@ -18,7 +18,7 @@ const { width: W, height: H } = Dimensions.get('window');
 const SX = W / 360;
 const SY = H / 640;
 
-const LOGO = require('../../assets/logo.png');
+const LOGO = require('../../assets/logof.png');
 const BG   = require('../../assets/Login.png');
 
 // Small brown accent positions [left, top] — kept for subtle depth

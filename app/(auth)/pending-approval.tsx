@@ -19,7 +19,7 @@ const SX = W / 360;
 const SY = H / 640;
 
 const BG   = require('../../assets/approvalp.png');
-const LOGO = require('../../assets/logo.png');
+const LOGO = require('../../assets/logof.png');
 
 const STEPS = [
   { label: 'Registration submitted successfully', activeColor: '#F0DC8C' },
