@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "129202115296",
+    "project_id": "ourth-auth",
+    "storage_bucket": "ourth-auth.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:129202115296:android:564659203487e3c5f2b685",
+        "android_client_info": {
+          "package_name": "com.ourth.mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAArk6zxLunr1szyHP50fdGRolUqbmFU4E"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

@@ -482,6 +482,29 @@ export default function OrderTrackingScreen() {
           <StatusProgress status={statusForProgress} />
         </View>
 
+        {/* Tracking card */}
+        {order?.tracking_url && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Delivery Tracking</Text>
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+              <View>
+                <Text style={{ fontSize: 13, color: '#6b7280', fontWeight: '500' }}>Delivery Partner</Text>
+                <Text style={{ fontSize: 15, fontWeight: '700', color: '#1f2937' }}>Shadowfax</Text>
+              </View>
+              <View style={{ alignItems: 'flex-end' }}>
+                <Text style={{ fontSize: 13, color: '#6b7280', fontWeight: '500' }}>AWB Number</Text>
+                <Text style={{ fontSize: 14, fontWeight: '700', color: '#1f2937' }}>{order.awb_number}</Text>
+              </View>
+            </View>
+            <TouchableOpacity 
+              style={{ backgroundColor: '#3d6b4f', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
+              onPress={() => Linking.openURL(order.tracking_url as string)}
+            >
+              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Track Package</Text>
+            </TouchableOpacity>
+          </View>
+        )}
+
         {/* Items card */}
         {order?.items && order.items.length > 0 && (
           <View style={styles.card}>
