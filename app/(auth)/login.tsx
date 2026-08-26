@@ -79,52 +79,33 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       if (otpType === 'phone') {
-        let finalPhone = trimmed;
-        if (/^\d{10}$/.test(finalPhone)) {
-          finalPhone = '+91' + finalPhone;
-        }
-        if (!/^\+[1-9]\d{1,14}$/.test(finalPhone)) {
-          throw new Error('Please enter a valid phone number (e.g., +919876543210).');
-        }
-        // Native Firebase Phone Auth
-        const confirm = await auth().signInWithPhoneNumber(finalPhone);
-        setConfirmation(confirm);
-        setIdentifier(finalPhone);
+        await api.post('/auth/otp/send-phone', { phone: trimmed });
         setOtpSent(true);
-        Alert.alert('Success', 'OTP sent to your phone!');
+        Alert.alert('Success', 'OTP sent to your mobile number!');
       } else {
         // Email OTP via backend
-        await api.post('/auth/otp/send', { email: trimmed });
+        await api.post('/auth/otp/send-email', { email: trimmed });
         setOtpSent(true);
         Alert.alert('Success', 'OTP sent to your email!');
       }
     } catch (err: any) {
-      Alert.alert('Failed to send OTP', err.message || 'Something went wrong.');
+      Alert.alert('Failed to send OTP', err?.response?.data?.message || err.message || 'Something went wrong.');
     } finally {
       setLoading(false);
     }
   }
 
   async function handleVerifyOtp() {
-    if (!otp) {
+    if (!otp.trim()) {
       Alert.alert('Validation', 'Please enter the OTP.');
       return;
     }
 
     setLoading(true);
     try {
-      let otpPayload = otp;
-      
-      if (otpType === 'phone') {
-        if (!confirmation) throw new Error('No confirmation object found.');
-        const credential = auth.PhoneAuthProvider.credential(confirmation.verificationId, otp);
-        const userCredential = await auth().signInWithCredential(credential);
-        otpPayload = await userCredential.user.getIdToken();
-      }
-
       const { data } = await api.post('/auth/otp/verify', {
-        identifier,
-        otp: otpPayload,
+        identifier: identifier.trim(),
+        otp: otp.trim(),
         type: otpType
       });
 
@@ -132,7 +113,7 @@ export default function LoginScreen() {
         // Navigate to complete profile
         router.push({
           pathname: '/(auth)/complete-profile',
-          params: { identifier, type: otpType }
+          params: { identifier: identifier.trim(), type: otpType }
         });
       } else {
         await handleSuccessfulAuth(data);
