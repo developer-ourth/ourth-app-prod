@@ -24,7 +24,7 @@ try {
   // Silent fallback when running in Expo Go without native modules
 }
 import { ShoppingCart, ChevronLeft, Minus, Plus, Heart, ArrowUp, MapPin, ChevronRight, Trash2 } from '@/components/icons';
-import { fixAssetUrl, addressAPI, marketplaceAPI, orderAPI } from '@/lib/api';
+import { fixAssetUrl, addressAPI, marketplaceAPI, orderAPI, greenPointsAPI } from '@/lib/api';
 import { useCartStore } from '@/lib/cartStore';
 import { useAuthStore } from '@/lib/store';
 import { isExpoGo } from '@/lib/pushNotifications';
@@ -114,6 +114,17 @@ export default function CartScreen() {
     }, [loadAddresses]),
   );
 
+  const [greenPointsBalance, setGreenPointsBalance] = useState(0);
+  const [useGreenPoints, setUseGreenPoints] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      greenPointsAPI.get()
+        .then((res) => setGreenPointsBalance(res.data?.data?.green_points ?? 0))
+        .catch(() => setGreenPointsBalance(0));
+    }
+  }, [user]);
+
   useEffect(() => {
     marketplaceAPI.getProducts({ per_page: 3, page: 1 }).then((res) => {
       setSuggestedProducts(res.data?.data ?? []);
@@ -192,6 +203,7 @@ export default function CartScreen() {
                 payment_method:        isCod ? 'cod' : 'upi',
                 order_type:            isB2B ? 'b2b' : 'b2c',
                 buyer_gstin:           isB2B ? (user as any).vendor?.gstin : undefined,
+                use_green_points:      useGreenPoints,
               });
 
               const createdOrder = orderRes.data?.data ?? orderRes.data;
