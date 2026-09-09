@@ -31,6 +31,9 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
+      "enableProguardInReleaseBuilds": true,
+      "enableShrinkResourcesInReleaseBuilds": true,
+      "supportsTablet": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.ourth.mobile",
       "googleServicesFile": "./google-services.json",
