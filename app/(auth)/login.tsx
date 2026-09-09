@@ -30,6 +30,7 @@ const SY = H / 640;
 const BG        = require('../../assets/Registers.png');
 const BACK      = require('../../assets/back.png');
 const BACK_SHAPE = require('../../assets/back_register.png');
+const LOGO      = require('../../assets/logof.png');
 
 export default function LoginScreen() {
   const router  = useRouter();
@@ -143,7 +144,7 @@ export default function LoginScreen() {
           <Image source={BACK_SHAPE} style={styles.backBtnShape} resizeMode="cover" />
           <Image source={BACK} style={styles.backBtnImg} resizeMode="contain" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Sign in</Text>
+        <Image source={LOGO} style={{ width: 130, height: 36 }} resizeMode="contain" />
       </View>
 
       <KeyboardAvoidingView style={styles.kvFlex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
