@@ -8,7 +8,15 @@ import { useAuthStore } from '@/lib/store';
 import { registerForPushNotifications, isExpoGo } from '@/lib/pushNotifications';
 import ThemedAlertHost from '@/components/ui/ThemedAlertHost';
 import Toast from 'react-native-toast-message';
-import { useNetInfo } from '@react-native-community/netinfo';
+import { useState } from 'react';
+import { View, Text } from 'react-native';
+
+let useNetInfo: any = () => ({ isConnected: true });
+try {
+  useNetInfo = require('@react-native-community/netinfo').useNetInfo;
+} catch (e) {
+  // Silent fallback for Expo Go where native C++ module isn't compiled
+}
 
 // Initialize Sentry crash analytics
 const sentryDsn = process.env.EXPO_PUBLIC_SENTRY_DSN;
