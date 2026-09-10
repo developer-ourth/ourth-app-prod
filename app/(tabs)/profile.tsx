@@ -62,6 +62,8 @@ export default function ProfileScreen() {
     }
   }
 
+  const [deleting, setDeleting] = useState(false);
+
   async function handleLogout() {
     Alert.alert('Sign Out', 'Are you sure you want to sign out?', [
       { text: 'Cancel', style: 'cancel' },
@@ -77,6 +79,32 @@ export default function ProfileScreen() {
         },
       },
     ]);
+  }
+
+  async function handleDeleteAccount() {
+    Alert.alert(
+      'Delete Account',
+      'Are you sure you want to permanently delete your account? This action cannot be undone and your profile and order data will be removed.',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Delete Account',
+          style: 'destructive',
+          onPress: async () => {
+            setDeleting(true);
+            try {
+              await api.delete('/me/account');
+              Alert.alert('Account Deleted', 'Your account has been deleted successfully.');
+              await logout();
+            } catch (err: unknown) {
+              Alert.alert('Error', err instanceof Error ? err.message : 'Failed to delete account.');
+            } finally {
+              setDeleting(false);
+            }
+          },
+        },
+      ]
+    );
   }
 
   if (loading) {
@@ -195,6 +223,19 @@ export default function ProfileScreen() {
             <Text style={styles.menuItemText}>Log out</Text>
           </TouchableOpacity>
 
+          {/* ── Delete Account ── */}
+          <TouchableOpacity style={styles.menuItemDelete} onPress={handleDeleteAccount} activeOpacity={0.7} disabled={deleting}>
+            <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
+            {deleting ? (
+              <ActivityIndicator size="small" color="#dc2626" style={{ marginRight: 6 }} />
+            ) : (
+              <LogOut size={16} color="#dc2626" style={{ marginRight: 6 }} />
+            )}
+            <Text style={[styles.menuItemText, { color: '#dc2626', fontWeight: '700' }]}>
+              {deleting ? 'Deleting Account...' : 'Delete Account'}
+            </Text>
+          </TouchableOpacity>
+
         </ScrollView>
       </SafeAreaView>
     </ImageBackground>
@@ -260,6 +301,18 @@ const styles = StyleSheet.create({
     borderColor: '#c23c3c',
     paddingVertical: 14,
     paddingHorizontal: 20,
+  },
+  menuItemDelete: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(254, 226, 226, 0.4)',
+    borderRadius: 12,
+    overflow: 'hidden',
+    borderWidth: 1.5,
+    borderColor: '#fca5a5',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    marginTop: 4,
   },
   menuItemText:   { fontSize: 15, color: '#1f2937' },
 });
