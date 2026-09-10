@@ -667,10 +667,37 @@ export default function CartScreen() {
                   <Text style={styles.billingLabel}>Sub Total</Text>
                   <Text style={styles.billingValue}>₹{subtotal.toFixed(2)}</Text>
                 </View>
-                <View style={styles.billingRow}>
-                  <Text style={styles.billingLabel}>Delivery Charges</Text>
-                  <Text style={[styles.billingValue, styles.freeText]}>Free</Text>
-                </View>
+                {/* Delivery Fee Calculation based on Selected Address */}
+                {(() => {
+                  const pin = (selectedAddress?.postal_code ?? '').replace(/\D/g, '');
+                  let fee = 49;
+                  if (pin.length >= 3) {
+                    const prefix3 = pin.substring(0, 3);
+                    const prefix2 = pin.substring(0, 2);
+                    if (prefix2 === '11' || ['121', '122', '201'].includes(prefix3)) fee = 39;
+                    else if (['18', '19', '78', '79', '74', '68'].includes(prefix2)) fee = 69;
+                    else if (['12', '13', '14', '15', "16", "17", "20", "21", "22", "23", "24", "25", "26", "27", "28", "30", "31", "32", "33", "34"].includes(prefix2)) fee = 49;
+                    else fee = 59;
+                  }
+
+                  return (
+                    <>
+                      <View style={styles.billingRow}>
+                        <Text style={styles.billingLabel}>Delivery Charges (Shadowfax)</Text>
+                        <Text style={[styles.billingValue, { textDecorationLine: 'line-through', color: '#9ca3af', fontSize: 13 }]}>₹{fee.toFixed(2)}</Text>
+                      </View>
+                      <View style={styles.billingRow}>
+                        <Text style={styles.billingLabel}>Free Delivery Discount</Text>
+                        <Text style={[styles.billingValue, styles.freeText]}>- ₹{fee.toFixed(2)}</Text>
+                      </View>
+                      <View style={{ backgroundColor: '#f0fdf4', borderWidth: 1, borderColor: '#bbf7d0', borderRadius: 10, padding: 8, marginTop: 4, marginBottom: 8 }}>
+                        <Text style={{ color: '#166534', fontSize: 12, fontWeight: '600', textAlign: 'center' }}>
+                          🎉 You are eligible for Free Delivery on this order!
+                        </Text>
+                      </View>
+                    </>
+                  );
+                })()}
                 <View style={styles.billingRow}>
                   <Text style={styles.billingLabel}>Coupon Discount</Text>
                   <Text style={[styles.billingValue, styles.discountText]}>
