@@ -40,7 +40,6 @@ import { useThemeStore } from '@/lib/themeStore';
 import { useDebounce } from '@/lib/useDebounce';
 import CartSuccessModal from '@/components/ui/CartSuccessModal';
 import Skeleton from '@/components/ui/Skeleton';
-import { Image as ExpoImage } from 'expo-image';
 import Toast from 'react-native-toast-message';
 import type { Category, Product } from '@/lib/types';
 
