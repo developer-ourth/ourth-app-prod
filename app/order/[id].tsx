@@ -492,7 +492,10 @@ export default function OrderTrackingScreen() {
     ?? { title: 'Tracking', subtitle: '' };
   const statusForProgress = tracking?.order_status ?? order?.order_status ?? 'pending';
 
-  const subtotal = parseFloat(order?.subtotal ?? order?.total_amount ?? '0');
+  const computedSubtotal = order?.items?.length
+    ? order.items.reduce((acc, item) => acc + (parseFloat(item.unit_price ?? item.product?.discounted_price ?? item.product?.base_price ?? '0') * item.quantity), 0)
+    : 0;
+  const subtotal = parseFloat(order?.subtotal ?? '0') || computedSubtotal || parseFloat(order?.total_amount ?? '0');
   const deliveryCharge = parseFloat(order?.delivery_charge ?? '0');
   const taxAmount = parseFloat(order?.tax_amount ?? '0');
   const discountAmount = parseFloat(order?.discount_amount ?? '0');
@@ -694,23 +697,11 @@ export default function OrderTrackingScreen() {
             <View style={styles.billingRow}>
               <Text style={styles.billingLabel}>Delivery Charge</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                {deliveryCharge > 0 ? (
-                  <Text style={[styles.billingValue, { textDecorationLine: 'line-through', color: '#9ca3af' }]}>
-                    ₹{deliveryCharge.toFixed(0)}
-                  </Text>
-                ) : (
-                  <Text style={[styles.billingValue, { textDecorationLine: 'line-through', color: '#9ca3af' }]}>
-                    ₹39
-                  </Text>
-                )}
+                <Text style={[styles.billingValue, { textDecorationLine: 'line-through', color: '#9ca3af' }]}>
+                  ₹39
+                </Text>
                 <Text style={[styles.billingValue, { color: '#16a34a', fontWeight: '700' }]}>FREE</Text>
               </View>
-            </View>
-            <View style={styles.billingRow}>
-              <Text style={styles.billingLabel}>Free Delivery Discount</Text>
-              <Text style={[styles.billingValue, { color: '#16a34a', fontWeight: '700' }]}>
-                -₹{deliveryCharge > 0 ? deliveryCharge.toFixed(0) : '39'}
-              </Text>
             </View>
             {discountAmount > 0 && (
               <View style={styles.billingRow}>

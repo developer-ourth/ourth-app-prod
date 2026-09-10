@@ -192,10 +192,33 @@ export default function OrdersScreen() {
                       pointerEvents="none"
                     />
                   )}
-                  <Text style={styles.orderIdLabel}>Order ID:</Text>
-                  <Text style={styles.orderIdValue} numberOfLines={1}>
-                    {item.order_number || String(item.id)}
-                  </Text>
+                  <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 2 }}>
+                    <View style={{ flex: 1, paddingRight: 4 }}>
+                      <Text style={styles.orderIdLabel}>Order ID:</Text>
+                      <Text style={styles.orderIdValue} numberOfLines={1}>
+                        {item.order_number || String(item.id)}
+                      </Text>
+                    </View>
+                    <View style={[
+                      { paddingHorizontal: 7, paddingVertical: 2, borderRadius: 6, borderWidth: 1 },
+                      item.payment_status === 'paid'
+                        ? { backgroundColor: '#dcfce7', borderColor: '#86efac' }
+                        : item.payment_status === 'failed'
+                          ? { backgroundColor: '#fee2e2', borderColor: '#fca5a5' }
+                          : { backgroundColor: '#fef3c7', borderColor: '#fde68a' }
+                    ]}>
+                      <Text style={[
+                        { fontSize: 10, fontWeight: '800' },
+                        item.payment_status === 'paid'
+                          ? { color: '#16a34a' }
+                          : item.payment_status === 'failed'
+                            ? { color: '#dc2626' }
+                            : { color: '#d97706' }
+                      ]}>
+                        {item.payment_status ? item.payment_status.toUpperCase() : 'PENDING'}
+                      </Text>
+                    </View>
+                  </View>
                   <View style={styles.metaRow}>
                     <Text style={styles.metaText}>{ordinalDate(item.created_at)}</Text>
                     <Text style={styles.metaText}>{count}: items</Text>
