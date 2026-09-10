@@ -14,6 +14,8 @@ interface CartStore {
   removeItem: (itemId: number) => Promise<void>;
   applyCoupon: (code: string) => Promise<void>;
   removeCoupon: () => Promise<void>;
+  setAgentCode: (code?: string) => Promise<void>;
+  removeAgentCode: () => Promise<void>;
   clearCart: () => Promise<void>;
 }
 
@@ -97,6 +99,16 @@ export const useCartStore = create<CartStore>((set, get) => ({
 
   removeCoupon: async () => {
     const { data } = await cartAPI.removeCoupon();
+    set({ cart: data.data ?? data });
+  },
+
+  setAgentCode: async (code?: string) => {
+    const { data } = await cartAPI.setAgentCode(code);
+    set({ cart: data.data ?? data });
+  },
+
+  removeAgentCode: async () => {
+    const { data } = await cartAPI.removeAgentCode();
     set({ cart: data.data ?? data });
   },
 

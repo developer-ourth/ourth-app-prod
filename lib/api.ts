@@ -160,6 +160,8 @@ export const cartAPI = {
   clearCart:    ()                                     => api.delete('/me/cart'),
   applyCoupon:  (code: string)                         => api.post('/me/cart/coupon', { code }),
   removeCoupon: ()                                     => api.delete('/me/cart/coupon'),
+  setAgentCode: (agentCode?: string)                   => api.post('/me/cart/agent-code', { agent_code: agentCode }),
+  removeAgentCode: ()                                  => api.delete('/me/cart/agent-code'),
 };
 
 // ─── Orders ──────────────────────────────────────────────────────────────────

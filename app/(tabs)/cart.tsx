@@ -12,6 +12,8 @@ import {
   Modal,
   FlatList,
   Pressable,
+  Switch,
+  TextInput,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -61,7 +63,7 @@ function getPaymentErrorMessage(err: unknown): string {
 
 export default function CartScreen() {
   const router = useRouter();
-  const { cart, loading, fetchCart, updateItem, removeItem, clearCart, addItem, applyCoupon, removeCoupon } = useCartStore();
+  const { cart, loading, fetchCart, updateItem, removeItem, clearCart, addItem, applyCoupon, removeCoupon, setAgentCode, removeAgentCode } = useCartStore();
   const { user } = useAuthStore();
   // Temporarily disabled for now: B2B and B2C use the same rate.
   const isB2B = false; // user?.role === 'vendor';
@@ -79,6 +81,10 @@ export default function CartScreen() {
   const [couponInput, setCouponInput] = useState('');
   const [couponApplying, setCouponApplying] = useState(false);
   const [activeCoupons, setActiveCoupons] = useState<Coupon[]>([]);
+
+  const [showAgentInput, setShowAgentInput] = useState(false);
+  const [agentInput, setAgentInput] = useState('');
+  const [agentApplying, setAgentApplying] = useState(false);
 
   const loadAddresses = useCallback(async () => {
     try {
@@ -152,6 +158,28 @@ export default function CartScreen() {
       Alert.alert('Coupon Error', err?.message ?? 'Failed to apply coupon.');
     } finally {
       setCouponApplying(false);
+    }
+  const handleApplyAgentCode = async (customCode?: string) => {
+    const codeToApply = customCode !== undefined ? customCode : agentInput.trim().toUpperCase();
+    setAgentApplying(true);
+    try {
+      await setAgentCode(codeToApply || undefined);
+      setAgentInput('');
+    } catch (err: any) {
+      Alert.alert('Agent Code Error', err?.message ?? 'Failed to apply agent code.');
+    } finally {
+      setAgentApplying(false);
+    }
+  };
+
+  const handleRemoveAgentCode = async () => {
+    setAgentApplying(true);
+    try {
+      await removeAgentCode();
+    } catch (err: any) {
+      Alert.alert('Error', err?.message ?? 'Failed to remove agent code.');
+    } finally {
+      setAgentApplying(false);
     }
   };
 
@@ -493,6 +521,72 @@ export default function CartScreen() {
                 </View>
               </View>
 
+
+              {/* Agent Code Enable/Disable Card */}
+              <View style={[styles.couponBox, { marginBottom: 12 }]}>
+                <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.4)', 'rgba(235,242,228,0.4)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[StyleSheet.absoluteFill, { opacity: 0.8 }]}
+                  pointerEvents="none"
+                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', justify: 'space-between', justifyContent: 'space-between' }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <Tag size={20} color="#166534" />
+                    <Text style={{ fontSize: 15, fontWeight: '700', color: '#166534' }}>Have an Agent Code?</Text>
+                  </View>
+                  <Switch
+                    value={showAgentInput || Boolean(cart?.agent_code)}
+                    onValueChange={(val) => {
+                      setShowAgentInput(val);
+                      if (val && !cart?.agent_code) {
+                        handleApplyAgentCode('');
+                      } else if (!val && cart?.agent_code) {
+                        handleRemoveAgentCode();
+                      }
+                    }}
+                    trackColor={{ false: '#d1d5db', true: '#86efac' }}
+                    thumbColor={showAgentInput || cart?.agent_code ? '#166534' : '#f3f4f6'}
+                  />
+                </View>
+
+                {(showAgentInput || Boolean(cart?.agent_code)) && (
+                  <View style={{ marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: 'rgba(0,0,0,0.06)' }}>
+                    {cart?.agent_code ? (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: '#e8f5e9', paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10 }}>
+                        <Text style={{ fontWeight: '700', color: '#166534', fontSize: 14 }}>Code: {cart.agent_code}</Text>
+                        <TouchableOpacity onPress={handleRemoveAgentCode} disabled={agentApplying}>
+                          <Text style={{ color: '#dc2626', fontWeight: '600', fontSize: 13 }}>Remove</Text>
+                        </TouchableOpacity>
+                      </View>
+                    ) : (
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                        <TextInput
+                          style={{ flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: '#cbd5e1', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 8, fontSize: 14, fontWeight: '600', color: '#000' }}
+                          placeholder="e.g. SA001"
+                          placeholderTextColor="#9ca3af"
+                          autoCapitalize="characters"
+                          value={agentInput}
+                          onChangeText={setAgentInput}
+                        />
+                        <TouchableOpacity
+                          style={[{ backgroundColor: '#166534', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 10 }, agentApplying && { opacity: 0.5 }]}
+                          disabled={agentApplying}
+                          onPress={() => handleApplyAgentCode()}
+                        >
+                          {agentApplying ? (
+                            <ActivityIndicator size="small" color="#fff" />
+                          ) : (
+                            <Text style={{ color: '#fff', fontWeight: '700', fontSize: 13 }}>APPLY</Text>
+                          )}
+                        </TouchableOpacity>
+                      </View>
+                    )}
+                  </View>
+                )}
+              </View>
 
               {/* Zomato/Swiggy style Coupons & Offers Section */}
               <View style={styles.couponBox}>
