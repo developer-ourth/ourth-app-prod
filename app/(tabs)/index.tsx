@@ -45,7 +45,8 @@ import Toast from 'react-native-toast-message';
 import type { Category, Product } from '@/lib/types';
 
 const BG_IMAGE = require('../../assets/Frame16.png');
-const CARD_W = Math.floor((Dimensions.get('window').width - 36) / 2);
+const SCREEN_WIDTH = Dimensions.get('window').width;
+const CARD_W = Math.floor((SCREEN_WIDTH - 36) / 2);
 const USE_NATIVE_BLUR = Platform.OS !== 'android';
 
 export default function HomeScreen() {
@@ -57,9 +58,6 @@ export default function HomeScreen() {
   const { liked, toggle } = useCollectionsStore();
   const { addItem } = useCartStore();
   const { appBackgroundColor, headerBackgroundColor, appTextColor, bannerTagline, bannerSubtagline, bannerImageUrl, fetchSettings } = useThemeStore();
-
-  const isVideo = bannerImageUrl ? /\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(bannerImageUrl) : false;
-  const resolvedVideoUrl = isVideo ? fixAssetUrl(bannerImageUrl) : null;
 
   const handleAddToCart = useCallback(async (item: Product) => {
     try {
@@ -90,6 +88,46 @@ export default function HomeScreen() {
   const bannerExpandedRef = useRef(true);
   const lastScrollY = useRef(0);
   const headerTranslateY = useRef(new Animated.Value(0)).current;
+
+  // Carousel state
+  const carouselRef = useRef<FlatList>(null);
+  const [carouselIndex, setCarouselIndex] = useState(0);
+
+  // Dynamic slides combining backend banner settings with default promotional slides
+  const bannerSlides = [
+    {
+      id: '1',
+      tagline: bannerTagline || 'MONSOON Big Sale',
+      subtagline: bannerSubtagline || 'DISCOUNT UP TO 40% OFF',
+      image: bannerImageUrl || '',
+    },
+    {
+      id: '2',
+      tagline: '100% Compostable & Eco-Friendly',
+      subtagline: 'Sustainable Dining, Thoughtfully Designed',
+      image: '',
+    },
+    {
+      id: '3',
+      tagline: 'Bulk Wholesale Orders Available',
+      subtagline: 'Direct Factory Rates for B2B & Restaurants',
+      image: '',
+    },
+  ];
+
+  // Auto-scroll Carousel every 3.5 seconds
+  useEffect(() => {
+    if (!bannerExpanded) return;
+    const interval = setInterval(() => {
+      setCarouselIndex((prev) => {
+        const next = (prev + 1) % bannerSlides.length;
+        carouselRef.current?.scrollToIndex({ index: next, animated: true });
+        return next;
+      });
+    }, 3500);
+
+    return () => clearInterval(interval);
+  }, [bannerExpanded, bannerSlides.length]);
 
   const collapseBanner = () => {
     if (!bannerExpandedRef.current) return;
@@ -408,32 +446,68 @@ export default function HomeScreen() {
             </ScrollView>
           </View>
 
-          {/* Collapsible Banner Section — slides under categories */}
+          {/* Collapsible Banner Carousel Section — slides under categories */}
           <Animated.View style={[styles.bannerClip, { height: bannerAnim }]}>
-            {isVideo && Video ? (
-              <View style={styles.bannerContent}>
-                <Video
-                  source={resolvedVideoUrl ? { uri: resolvedVideoUrl } : undefined}
-                  style={StyleSheet.absoluteFillObject}
-                  resizeMode={ResizeMode?.COVER}
-                  shouldPlay
-                  isLooping
-                  isMuted
-                  useNativeControls={false}
-                />
-                <Text style={styles.bannerTagline}>{bannerTagline}</Text>
-                <Text style={styles.bannerSubTagline}>{bannerSubtagline}</Text>
+            <FlatList
+              ref={carouselRef}
+              data={bannerSlides}
+              keyExtractor={(item) => item.id}
+              horizontal
+              pagingEnabled
+              showsHorizontalScrollIndicator={false}
+              onMomentumScrollEnd={(e) => {
+                const newIdx = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
+                setCarouselIndex(newIdx);
+              }}
+              renderItem={({ item }) => {
+                const itemIsVideo = item.image ? /\.(mp4|webm|ogg|mov|avi|mkv)$/i.test(item.image) : false;
+                const resolvedUrl = itemIsVideo ? fixAssetUrl(item.image) : null;
+
+                return (
+                  <View style={{ width: SCREEN_WIDTH, height: BANNER_HEIGHT }}>
+                    {itemIsVideo && Video ? (
+                      <View style={styles.bannerContent}>
+                        <Video
+                          source={resolvedUrl ? { uri: resolvedUrl } : undefined}
+                          style={StyleSheet.absoluteFillObject}
+                          resizeMode={ResizeMode?.COVER}
+                          shouldPlay
+                          isLooping
+                          isMuted
+                          useNativeControls={false}
+                        />
+                        <Text style={styles.bannerTagline}>{item.tagline}</Text>
+                        <Text style={styles.bannerSubTagline}>{item.subtagline}</Text>
+                      </View>
+                    ) : (
+                      <ImageBackground
+                        source={item.image && item.image !== '' ? { uri: fixAssetUrl(item.image) } : BG_IMAGE}
+                        style={styles.bannerContent}
+                        imageStyle={{ width: '100%', height: '100%', resizeMode: 'cover' }}
+                        resizeMode="cover"
+                      >
+                        <Text style={styles.bannerTagline}>{item.tagline}</Text>
+                        <Text style={styles.bannerSubTagline}>{item.subtagline}</Text>
+                      </ImageBackground>
+                    )}
+                  </View>
+                );
+              }}
+            />
+
+            {/* Carousel Dot Indicators */}
+            {bannerSlides.length > 1 && (
+              <View style={styles.carouselDotsContainer}>
+                {bannerSlides.map((_, idx) => (
+                  <View
+                    key={idx}
+                    style={[
+                      styles.carouselDot,
+                      carouselIndex === idx && styles.carouselDotActive,
+                    ]}
+                  />
+                ))}
               </View>
-            ) : (
-              <ImageBackground
-                source={bannerImageUrl && bannerImageUrl !== '' ? { uri: fixAssetUrl(bannerImageUrl) } : undefined}
-                style={styles.bannerContent}
-                imageStyle={{ width: '100%', height: '100%', resizeMode: 'cover' }}
-                resizeMode="cover"
-              >
-                <Text style={styles.bannerTagline}>{bannerTagline}</Text>
-                <Text style={styles.bannerSubTagline}>{bannerSubtagline}</Text>
-              </ImageBackground>
             )}
           </Animated.View>
         </View>{/* close glassHeader */}
@@ -569,8 +643,11 @@ const styles = StyleSheet.create({
   addBtnText:              { color: '#0D3A27', fontWeight: '700', fontSize: 14 },
   bannerClip:              { width: '100%', overflow: 'hidden', zIndex: 1, elevation: 1 },
   bannerContent:           { width: '100%', height: 160, justifyContent: 'center', alignItems: 'center' },
-  bannerTagline:           { color: '#fde047', fontSize: 22, fontWeight: '800', textAlign: 'center' },
-  bannerSubTagline:        { color: '#ffffff', fontSize: 14, marginTop: 6, textAlign: 'center' },
+  bannerTagline:           { color: '#fde047', fontSize: 22, fontWeight: '800', textAlign: 'center', paddingHorizontal: 16 },
+  bannerSubTagline:        { color: '#ffffff', fontSize: 14, marginTop: 6, textAlign: 'center', paddingHorizontal: 16 },
+  carouselDotsContainer:   { position: 'absolute', bottom: 10, left: 0, right: 0, flexDirection: 'row', justifyContent: 'center', gap: 6, zIndex: 10 },
+  carouselDot:             { width: 7, height: 7, borderRadius: 4, backgroundColor: 'rgba(255,255,255,0.4)' },
+  carouselDotActive:       { width: 22, backgroundColor: '#fde047' },
   curveContainer:          { width: '100%', height: 40, alignItems: 'center' },
   arrowToggleBtn:          { position: 'absolute', top: 5, width: 28, height: 28, alignItems: 'center', justifyContent: 'center', zIndex: 10 },
 });
