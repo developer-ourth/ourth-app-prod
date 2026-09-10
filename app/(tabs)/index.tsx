@@ -334,11 +334,7 @@ export default function HomeScreen() {
           <View style={styles.header}>
             <View style={styles.headerTop}>
               <View style={{ width: 34 }} />
-              <Image 
-                source={require('../../assets/logof.png')} 
-                style={styles.brandLogo} 
-                resizeMode="contain" 
-              />
+              <Text style={styles.brandTitleText}>OURTH!</Text>
               <TouchableOpacity
                 style={styles.profileBtn}
                 onPress={() => router.push('/(tabs)/profile')}
@@ -523,7 +519,7 @@ const styles = StyleSheet.create({
   micBtn:           { padding: 4, marginLeft: 8 },
   headerRight:      { flexDirection: 'row', alignItems: 'center', gap: 10 },
   profileBtn:       { width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
-  brandLogo:        { width: 140, height: 38 },
+  brandTitleText:   { fontSize: 26, fontWeight: '900', color: '#ffffff', letterSpacing: 1.5 },
   voiceOverlay:     { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', alignItems: 'center', justifyContent: 'center' },
   voiceCard:        { width: 280, backgroundColor: 'white', borderRadius: 20, padding: 24, alignItems: 'center', shadowColor: '#000', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.15, shadowRadius: 12, elevation: 8 },
   voiceMicCircle:   { width: 72, height: 72, borderRadius: 36, backgroundColor: '#154CC5', alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
