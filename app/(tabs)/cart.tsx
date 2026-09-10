@@ -25,7 +25,6 @@ try {
 } catch (e) {
   // Silent fallback when running in Expo Go without native modules
 }
-import { TextInput } from 'react-native';
 import { ShoppingCart, ChevronLeft, Minus, Plus, Heart, ArrowUp, MapPin, ChevronRight, Trash2, Tag } from '@/components/icons';
 import { fixAssetUrl, addressAPI, marketplaceAPI, orderAPI, greenPointsAPI, couponAPI } from '@/lib/api';
 import { useCartStore } from '@/lib/cartStore';
