@@ -148,12 +148,18 @@ export const taxProfileAPI = {
 
 // ─── Cart ─────────────────────────────────────────────────────────────────────
 
+export const couponAPI = {
+  getActiveCoupons: () => api.get<{ success: boolean; data: any[] }>('/coupons/active'),
+};
+
 export const cartAPI = {
-  getCart:    ()                                     => api.get('/me/cart'),
-  addItem:    (productId: number, quantity = 1, productPackId?: number | null)      => api.post('/me/cart/items', { product_id: productId, quantity, product_pack_id: productPackId }),
-  updateItem: (itemId: number, quantity: number)     => api.patch(`/me/cart/items/${itemId}`, { quantity }),
-  removeItem: (itemId: number)                       => api.delete(`/me/cart/items/${itemId}`),
-  clearCart:  ()                                     => api.delete('/me/cart'),
+  getCart:      ()                                     => api.get('/me/cart'),
+  addItem:      (productId: number, quantity = 1, productPackId?: number | null) => api.post('/me/cart/items', { product_id: productId, quantity, product_pack_id: productPackId }),
+  updateItem:   (itemId: number, quantity: number)     => api.patch(`/me/cart/items/${itemId}`, { quantity }),
+  removeItem:   (itemId: number)                       => api.delete(`/me/cart/items/${itemId}`),
+  clearCart:    ()                                     => api.delete('/me/cart'),
+  applyCoupon:  (code: string)                         => api.post('/me/cart/coupon', { code }),
+  removeCoupon: ()                                     => api.delete('/me/cart/coupon'),
 };
 
 // ─── Orders ──────────────────────────────────────────────────────────────────

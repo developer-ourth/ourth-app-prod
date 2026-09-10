@@ -100,6 +100,18 @@ export interface CartItem {
   productPack?: ProductPack | null;
 }
 
+export interface Coupon {
+  id: number;
+  code: string;
+  discount_percentage: string | number;
+  product_id: number | null;
+  expires_at: string | null;
+  usage_limit: number | null;
+  usage_count: number;
+  is_active: boolean;
+  product?: Pick<Product, 'id' | 'name'> | null;
+}
+
 export interface Cart {
   id: number;
   user_id: number;
@@ -107,6 +119,9 @@ export interface Cart {
   status: string;
   total_amount: string;
   total_items: number;
+  discount_amount?: string;
+  coupon_id?: number | null;
+  coupon?: Coupon | null;
   items: CartItem[];
   vendor?: Pick<Vendor, 'id' | 'business_name' | 'logo_url' | 'city'>;
 }

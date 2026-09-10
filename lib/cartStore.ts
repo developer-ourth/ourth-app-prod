@@ -12,6 +12,8 @@ interface CartStore {
   addItem: (productId: number, quantity?: number, productPackId?: number | null) => Promise<void>;
   updateItem: (itemId: number, quantity: number) => Promise<void>;
   removeItem: (itemId: number) => Promise<void>;
+  applyCoupon: (code: string) => Promise<void>;
+  removeCoupon: () => Promise<void>;
   clearCart: () => Promise<void>;
 }
 
@@ -86,6 +88,16 @@ export const useCartStore = create<CartStore>((set, get) => ({
     } catch {
       set({ cart: prev });
     }
+  },
+
+  applyCoupon: async (code: string) => {
+    const { data } = await cartAPI.applyCoupon(code);
+    set({ cart: data.data ?? data });
+  },
+
+  removeCoupon: async () => {
+    const { data } = await cartAPI.removeCoupon();
+    set({ cart: data.data ?? data });
   },
 
   clearCart: async () => {

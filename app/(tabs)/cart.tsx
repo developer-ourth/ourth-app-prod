@@ -23,12 +23,13 @@ try {
 } catch (e) {
   // Silent fallback when running in Expo Go without native modules
 }
-import { ShoppingCart, ChevronLeft, Minus, Plus, Heart, ArrowUp, MapPin, ChevronRight, Trash2 } from '@/components/icons';
-import { fixAssetUrl, addressAPI, marketplaceAPI, orderAPI, greenPointsAPI } from '@/lib/api';
+import { TextInput } from 'react-native';
+import { ShoppingCart, ChevronLeft, Minus, Plus, Heart, ArrowUp, MapPin, ChevronRight, Trash2, Tag } from '@/components/icons';
+import { fixAssetUrl, addressAPI, marketplaceAPI, orderAPI, greenPointsAPI, couponAPI } from '@/lib/api';
 import { useCartStore } from '@/lib/cartStore';
 import { useAuthStore } from '@/lib/store';
 import { isExpoGo } from '@/lib/pushNotifications';
-import type { CartItem, Address, Product } from '@/lib/types';
+import type { CartItem, Address, Product, Coupon } from '@/lib/types';
 
 const BG_IMAGE = require('../../assets/Frame16.png');
 const RAZORPAY_KEY_ID = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID ?? '';
@@ -60,7 +61,7 @@ function getPaymentErrorMessage(err: unknown): string {
 
 export default function CartScreen() {
   const router = useRouter();
-  const { cart, loading, fetchCart, updateItem, removeItem, clearCart, addItem } = useCartStore();
+  const { cart, loading, fetchCart, updateItem, removeItem, clearCart, addItem, applyCoupon, removeCoupon } = useCartStore();
   const { user } = useAuthStore();
   // Temporarily disabled for now: B2B and B2C use the same rate.
   const isB2B = false; // user?.role === 'vendor';
@@ -73,6 +74,11 @@ export default function CartScreen() {
   const [showPaymentPicker, setShowPaymentPicker] = useState(false);
   const [selectedPayment, setSelectedPayment] = useState<'cod' | 'upi'>('cod');
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([]);
+
+  const [showCouponPicker, setShowCouponPicker] = useState(false);
+  const [couponInput, setCouponInput] = useState('');
+  const [couponApplying, setCouponApplying] = useState(false);
+  const [activeCoupons, setActiveCoupons] = useState<Coupon[]>([]);
 
   const loadAddresses = useCallback(async () => {
     try {
@@ -126,10 +132,28 @@ export default function CartScreen() {
   }, [user]);
 
   useEffect(() => {
-    marketplaceAPI.getProducts({ per_page: 3, page: 1 }).then((res) => {
-      setSuggestedProducts(res.data?.data ?? []);
-    }).catch(() => {});
+    couponAPI.getActiveCoupons()
+      .then((res) => setActiveCoupons(res.data?.data ?? res.data ?? []))
+      .catch(() => setActiveCoupons([]));
   }, []);
+
+  const handleApplyCouponCode = async (codeToApply: string) => {
+    if (!codeToApply.trim()) {
+      Alert.alert('Invalid Code', 'Please enter a valid coupon code.');
+      return;
+    }
+    setCouponApplying(true);
+    try {
+      await applyCoupon(codeToApply.trim().toUpperCase());
+      setShowCouponPicker(false);
+      setCouponInput('');
+      Alert.alert('Coupon Applied 🎉', `Coupon '${codeToApply.trim().toUpperCase()}' applied successfully!`);
+    } catch (err: any) {
+      Alert.alert('Coupon Error', err?.message ?? 'Failed to apply coupon.');
+    } finally {
+      setCouponApplying(false);
+    }
+  };
 
   const handleQuantityChange = useCallback(
     (item: CartItem, delta: number) => {
@@ -299,6 +323,7 @@ export default function CartScreen() {
 
   const items = cart?.items ?? [];
   const total = cart?.total_amount ?? '0';
+  const discountAmount = parseFloat(cart?.discount_amount ?? '0');
   const subtotal = items.reduce((sum, item) => {
     const price = parseFloat(
       item.unit_price ?? item.product?.discounted_price ?? item.product?.base_price ?? '0',
@@ -469,6 +494,69 @@ export default function CartScreen() {
               </View>
 
 
+              {/* Zomato/Swiggy style Coupons & Offers Section */}
+              <View style={styles.couponBox}>
+                <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.4)', 'rgba(235,242,228,0.4)']}
+                  start={{ x: 0, y: 0 }}
+                  end={{ x: 1, y: 1 }}
+                  style={[StyleSheet.absoluteFill, { opacity: 0.8 }]}
+                  pointerEvents="none"
+                />
+                
+                {cart?.coupon ? (
+                  <View style={styles.appliedCouponRow}>
+                    <View style={styles.couponLeftIcon}>
+                      <Tag size={18} color="#15803d" />
+                    </View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                        <Text style={styles.appliedCouponCode}>'{cart.coupon.code}'</Text>
+                        <Text style={styles.appliedBadge}>APPLIED</Text>
+                      </View>
+                      <Text style={styles.appliedCouponSub}>
+                        Saving ₹{parseFloat(cart.discount_amount ?? '0').toFixed(2)} with this coupon!
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={async () => {
+                        try {
+                          await removeCoupon();
+                        } catch (e: any) {
+                          Alert.alert('Error', e?.message ?? 'Could not remove coupon.');
+                        }
+                      }}
+                      style={styles.removeCouponBtn}
+                    >
+                      <Text style={styles.removeCouponText}>REMOVE</Text>
+                    </TouchableOpacity>
+                  </View>
+                ) : (
+                  <TouchableOpacity
+                    style={styles.applyCouponRow}
+                    activeOpacity={0.75}
+                    onPress={() => setShowCouponPicker(true)}
+                  >
+                    <View style={styles.couponLeftIcon}>
+                      <Tag size={20} color="#166534" />
+                    </View>
+                    <View style={{ flex: 1, gap: 2 }}>
+                      <Text style={styles.applyCouponTitle}>Coupons & Offers</Text>
+                      <Text style={styles.applyCouponSub}>
+                        {activeCoupons.length > 0
+                          ? `${activeCoupons.length} coupon${activeCoupons.length > 1 ? 's' : ''} available for savings`
+                          : 'Apply promo code to save more'}
+                      </Text>
+                    </View>
+                    <View style={styles.applyRightBox}>
+                      <Text style={styles.applyRightText}>APPLY</Text>
+                      <ChevronRight size={16} color="#166534" />
+                    </View>
+                  </TouchableOpacity>
+                )}
+              </View>
+
               {/* Billing Details */}
               <View style={styles.billingBox}>
                 <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
@@ -489,8 +577,10 @@ export default function CartScreen() {
                   <Text style={[styles.billingValue, styles.freeText]}>Free</Text>
                 </View>
                 <View style={styles.billingRow}>
-                  <Text style={styles.billingLabel}>Discount</Text>
-                  <Text style={[styles.billingValue, styles.discountText]}>— ₹0.00</Text>
+                  <Text style={styles.billingLabel}>Coupon Discount</Text>
+                  <Text style={[styles.billingValue, styles.discountText]}>
+                    {discountAmount > 0 ? `- ₹${discountAmount.toFixed(2)}` : '— ₹0.00'}
+                  </Text>
                 </View>
                 <View style={styles.billingDivider} />
                 <View style={styles.billingRow}>
@@ -500,6 +590,98 @@ export default function CartScreen() {
               </View>
 
             </ScrollView>
+
+            {/* Coupon Picker Modal (Zomato / Swiggy style) */}
+            <Modal
+              visible={showCouponPicker}
+              transparent
+              animationType="slide"
+              onRequestClose={() => setShowCouponPicker(false)}
+            >
+              <Pressable style={styles.modalOverlay} onPress={() => setShowCouponPicker(false)}>
+                <Pressable style={styles.pickerSheet} onPress={(e) => e.stopPropagation()}>
+                  <View style={styles.pickerHeader}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      <Tag size={20} color="#166534" />
+                      <Text style={styles.pickerTitle}>Coupons & Offers</Text>
+                    </View>
+                    <TouchableOpacity onPress={() => setShowCouponPicker(false)}>
+                      <Text style={styles.pickerClose}>✕</Text>
+                    </TouchableOpacity>
+                  </View>
+
+                  {/* Coupon Input Row */}
+                  <View style={styles.couponInputContainer}>
+                    <TextInput
+                      style={styles.couponTextInput}
+                      placeholder="ENTER COUPON CODE"
+                      placeholderTextColor="#9ca3af"
+                      autoCapitalize="characters"
+                      value={couponInput}
+                      onChangeText={setCouponInput}
+                    />
+                    <TouchableOpacity
+                      style={[styles.applyInputBtn, (!couponInput.trim() || couponApplying) && { opacity: 0.5 }]}
+                      disabled={!couponInput.trim() || couponApplying}
+                      onPress={() => handleApplyCouponCode(couponInput)}
+                    >
+                      {couponApplying ? (
+                        <ActivityIndicator size="small" color="#fff" />
+                      ) : (
+                        <Text style={styles.applyInputBtnText}>APPLY</Text>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+
+                  <Text style={styles.availableCouponsHeading}>AVAILABLE COUPONS</Text>
+
+                  {activeCoupons.length === 0 ? (
+                    <View style={styles.pickerEmpty}>
+                      <Tag size={32} color="#9ca3af" />
+                      <Text style={styles.pickerEmptyText}>No active coupons available right now</Text>
+                    </View>
+                  ) : (
+                    <FlatList
+                      data={activeCoupons}
+                      keyExtractor={(c) => String(c.id)}
+                      contentContainerStyle={{ gap: 12, paddingBottom: 16 }}
+                      renderItem={({ item: coupon }) => {
+                        const discountStr = coupon.discount_percentage ? `${coupon.discount_percentage}% OFF` : 'SPECIAL DISCOUNT';
+                        const isApplied = cart?.coupon?.code === coupon.code;
+                        return (
+                          <View style={[styles.couponCard, isApplied && styles.couponCardApplied]}>
+                            <View style={styles.couponCardLeft}>
+                              <View style={styles.couponCodeBadge}>
+                                <Text style={styles.couponCodeBadgeText}>{coupon.code}</Text>
+                              </View>
+                              <Text style={styles.couponOfferTitle}>{discountStr}</Text>
+                              <Text style={styles.couponOfferSub}>
+                                {coupon.product ? `Valid on ${coupon.product.name}` : 'Valid on total order amount'}
+                              </Text>
+                              {coupon.expires_at && (
+                                <Text style={styles.couponExpiryText}>
+                                  Expires: {new Date(coupon.expires_at).toLocaleDateString('en-IN')}
+                                </Text>
+                              )}
+                            </View>
+
+                            <TouchableOpacity
+                              style={[styles.couponApplyCardBtn, isApplied && styles.couponAppliedCardBtn]}
+                              disabled={couponApplying || isApplied}
+                              onPress={() => handleApplyCouponCode(coupon.code)}
+                            >
+                              <Text style={[styles.couponApplyCardBtnText, isApplied && styles.couponAppliedCardBtnText]}>
+                                {isApplied ? 'APPLIED' : 'APPLY'}
+                              </Text>
+                            </TouchableOpacity>
+                          </View>
+                        );
+                      }}
+                    />
+                  )}
+                </Pressable>
+              </Pressable>
+            </Modal>
 
             {/* Address Picker Modal */}
             <Modal
@@ -745,6 +927,78 @@ const styles = StyleSheet.create({
     padding: 14, gap: 8,
   },
   deliveryLeft:    { flex: 1, gap: 3 },
+  couponBox: {
+    borderRadius: 15, overflow: 'hidden',
+    borderWidth: 1.5, borderColor: '#166534',
+    backgroundColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 14, paddingVertical: 12,
+  },
+  applyCouponRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+  },
+  couponLeftIcon: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#dcfce7', alignItems: 'center', justifyContent: 'center',
+  },
+  applyCouponTitle: { fontSize: 14, fontWeight: '700', color: '#166534' },
+  applyCouponSub:   { fontSize: 11, color: '#374151' },
+  applyRightBox:    { flexDirection: 'row', alignItems: 'center', gap: 2 },
+  applyRightText:   { fontSize: 12, fontWeight: '800', color: '#166534', letterSpacing: 0.5 },
+
+  appliedCouponRow: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+  },
+  appliedCouponCode: { fontSize: 13, fontWeight: '800', color: '#15803d', letterSpacing: 0.5 },
+  appliedBadge: {
+    fontSize: 9, fontWeight: '800', color: '#15803d',
+    backgroundColor: '#dcfce7', paddingHorizontal: 5, paddingVertical: 2, borderRadius: 4,
+  },
+  appliedCouponSub: { fontSize: 11, color: '#15803d', fontWeight: '500' },
+  removeCouponBtn:  { paddingHorizontal: 8, paddingVertical: 4 },
+  removeCouponText: { fontSize: 12, fontWeight: '800', color: '#dc2626', letterSpacing: 0.5 },
+
+  couponInputContainer: {
+    flexDirection: 'row', alignItems: 'center', gap: 10,
+    backgroundColor: '#f3f4f6', borderRadius: 12, padding: 6, marginBottom: 16,
+    borderWidth: 1, borderColor: '#e5e7eb',
+  },
+  couponTextInput: {
+    flex: 1, height: 40, paddingHorizontal: 12, fontSize: 13,
+    fontWeight: '700', color: '#1e3a5f', letterSpacing: 1,
+  },
+  applyInputBtn: {
+    backgroundColor: '#166534', paddingHorizontal: 16, paddingVertical: 10, borderRadius: 8,
+  },
+  applyInputBtnText: { color: '#fff', fontSize: 12, fontWeight: '800', letterSpacing: 0.5 },
+  availableCouponsHeading: {
+    fontSize: 11, fontWeight: '800', color: '#6b7280', letterSpacing: 1, marginBottom: 12,
+  },
+  couponCard: {
+    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+    backgroundColor: '#f9fafb', borderWidth: 1.5, borderColor: '#e5e7eb',
+    borderRadius: 14, padding: 14, gap: 10,
+  },
+  couponCardApplied: {
+    borderColor: '#166534', backgroundColor: '#f0fdf4',
+  },
+  couponCardLeft: { flex: 1, gap: 4 },
+  couponCodeBadge: {
+    alignSelf: 'flex-start', backgroundColor: '#dcfce7', borderWidth: 1,
+    borderColor: '#86efac', borderStyle: 'dashed', paddingHorizontal: 8, paddingVertical: 3, borderRadius: 6,
+  },
+  couponCodeBadgeText: { fontSize: 12, fontWeight: '800', color: '#15803d', letterSpacing: 0.8 },
+  couponOfferTitle:    { fontSize: 14, fontWeight: '700', color: '#111827' },
+  couponOfferSub:      { fontSize: 11, color: '#4b5563' },
+  couponExpiryText:    { fontSize: 10, color: '#9ca3af', marginTop: 2 },
+  couponApplyCardBtn: {
+    borderWidth: 1.5, borderColor: '#166534', borderRadius: 8,
+    paddingHorizontal: 14, paddingVertical: 8, backgroundColor: '#fff',
+  },
+  couponApplyCardBtnText: { fontSize: 12, fontWeight: '800', color: '#166534', letterSpacing: 0.5 },
+  couponAppliedCardBtn: {
+    backgroundColor: '#166534', borderColor: '#166534',
+  },
+  couponAppliedCardBtnText: { color: '#fff' },
+
   deliveryTitle:   { fontSize: 13, fontWeight: '700', color: '#2C1F13' },
   deliveryAddress: { fontSize: 11, color: '#6b7280', lineHeight: 16 },
   changeText:      { fontSize: 13, fontWeight: '600', color: '#1a6b5a' },
