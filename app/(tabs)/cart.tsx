@@ -159,6 +159,8 @@ export default function CartScreen() {
     } finally {
       setCouponApplying(false);
     }
+  };
+
   const handleApplyAgentCode = async (customCode?: string) => {
     const codeToApply = customCode !== undefined ? customCode : agentInput.trim().toUpperCase();
     setAgentApplying(true);
