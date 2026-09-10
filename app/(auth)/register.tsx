@@ -45,7 +45,9 @@ export default function RegisterScreen() {
   const [city,         setCity]         = useState('');
   const [state,        setState]        = useState('');
   const [password,     setPassword]     = useState('');
-  const [isBusiness,   setIsBusiness]   = useState(false);
+  const [userType, setUserType]     = useState<'hawker' | 'business'>('hawker');
+  const isBusiness = userType === 'business';
+
   const [loading,      setLoading]      = useState(false);
   const [showStatePicker, setShowStatePicker] = useState(false);
   const [showCityPicker,  setShowCityPicker]  = useState(false);
@@ -97,12 +99,15 @@ export default function RegisterScreen() {
           setLoading(false);
           return;
         }
-        if (gst.trim()) {
-          if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gst.trim().toUpperCase())) {
-            Alert.alert('Validation', 'Enter a valid 15-character GSTIN (e.g. 27AABCT1234H1Z5).');
-            setLoading(false);
-            return;
-          }
+        if (!gst.trim()) {
+          Alert.alert('Validation', 'GSTIN number is compulsory for business registration.');
+          setLoading(false);
+          return;
+        }
+        if (!/^[0-9]{2}[A-Z]{5}[0-9]{4}[A-Z][1-9A-Z]Z[0-9A-Z]$/.test(gst.trim().toUpperCase())) {
+          Alert.alert('Validation', 'Enter a valid 15-character GSTIN (e.g. 27AABCT1234H1Z5).');
+          setLoading(false);
+          return;
         }
         if (pincode.trim() && !/^\d{6}$/.test(pincode.trim())) {
           Alert.alert('Validation', 'Enter a valid 6-digit Pincode.');
@@ -206,21 +211,36 @@ export default function RegisterScreen() {
             />
           </Field>
 
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 8, marginVertical: 8 }}>
-            <Text style={{ fontSize: 16, fontWeight: '700', color: '#2C1F13', fontFamily: 'IBM Plex Sans' }}>
-              Register as a Business / Vendor
-            </Text>
-            <Switch
-              value={isBusiness}
-              onValueChange={setIsBusiness}
-              trackColor={{ false: '#d1d5db', true: '#a7f3d0' }}
-              thumbColor={isBusiness ? '#1a6b5a' : '#9ca3af'}
-            />
-          </View>
+          <Field label="Account Type">
+            <View style={{ flexDirection: 'row', gap: 10, marginTop: 4 }}>
+              <TouchableOpacity
+                style={[
+                  styles.pickerBtn,
+                  { flex: 1, alignItems: 'center' },
+                  !isBusiness && { backgroundColor: '#1a6b5a', borderColor: '#1a6b5a' },
+                ]}
+                onPress={() => setUserType('hawker')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.pickerBtnText, !isBusiness && { color: '#ffffff' }]}>Hawker</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[
+                  styles.pickerBtn,
+                  { flex: 1, alignItems: 'center' },
+                  isBusiness && { backgroundColor: '#1a6b5a', borderColor: '#1a6b5a' },
+                ]}
+                onPress={() => setUserType('business')}
+                activeOpacity={0.8}
+              >
+                <Text style={[styles.pickerBtnText, isBusiness && { color: '#ffffff' }]}>Business</Text>
+              </TouchableOpacity>
+            </View>
+          </Field>
 
           {isBusiness && (
             <>
-              <Field label="Business Name">
+              <Field label="Business Name *">
                 <TextInput
                   style={styles.input}
                   value={businessName}
@@ -230,7 +250,7 @@ export default function RegisterScreen() {
                 />
               </Field>
 
-              <Field label="GST Number (optional)">
+              <Field label="GSTIN Number *">
                 <TextInput
                   style={styles.input}
                   value={gst}

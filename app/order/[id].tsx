@@ -28,10 +28,11 @@ const POLL_MS = 5000;
 
 // â”€â”€â”€ Status config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-const STATUS_STEPS = ['pending', 'confirmed', 'processing', 'out_for_delivery', 'delivered'];
-const STATUS_LABELS = ['Received', 'Preparing', 'Ready Box', 'Out for Delivery', 'Delivered'];
+const STATUS_STEPS = ['pending_payment', 'pending', 'confirmed', 'processing', 'out_for_delivery', 'delivered'];
+const STATUS_LABELS = ['Pending Payment', 'Received', 'Preparing', 'Ready Box', 'Out for Delivery', 'Delivered'];
 
 const STATUS_DISPLAY: Record<string, { title: string; subtitle: string }> = {
+  pending_payment: { title: 'Pending Payment', subtitle: 'Payment pending for online order' },
   pending: { title: 'Order Received', subtitle: 'Your order is being confirmed' },
   confirmed: { title: 'Order Confirmed', subtitle: 'Being prepared by vendor' },
   processing: { title: 'Ready to Ship', subtitle: 'Your order is packed and ready' },
@@ -158,37 +159,34 @@ export default function OrderTrackingScreen() {
   // Reorder state
   const [reordering, setReordering] = useState(false);
   const [cancelling, setCancelling] = useState(false);
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelReason, setCancelReason] = useState('');
 
-  async function handleCancelOrder() {
+  async function handleCancelOrderWithReason() {
     if (!order?.id) { return; }
-    Alert.alert(
-      'Cancel Order',
-      'Are you sure you want to cancel this order?',
-      [
-        { text: 'No', style: 'cancel' },
-        {
-          text: 'Yes, Cancel',
-          style: 'destructive',
-          onPress: async () => {
-            setCancelling(true);
-            try {
-              const res = await api.post(`/me/orders/${order.id}/cancel`);
-              if (res.data?.success) {
-                Alert.alert('Success', 'Order cancelled successfully.');
-                fetchOrder();
-              } else {
-                Alert.alert('Error', res.data?.message || 'Could not cancel order.');
-              }
-            } catch (err: any) {
-              const msg = err.response?.data?.message || 'Could not cancel order.';
-              Alert.alert('Error', msg);
-            } finally {
-              setCancelling(false);
-            }
-          }
-        }
-      ]
-    );
+    if (!cancelReason.trim()) {
+      Alert.alert('Validation', 'Please provide a reason for cancelling your order.');
+      return;
+    }
+    setCancelling(true);
+    try {
+      const res = await api.post(`/me/orders/${order.id}/cancel`, {
+        reason: cancelReason.trim(),
+      });
+      if (res.data?.success) {
+        Alert.alert('Success', 'Order cancelled successfully.');
+        setShowCancelModal(false);
+        setCancelReason('');
+        fetchOrder();
+      } else {
+        Alert.alert('Error', res.data?.message || 'Could not cancel order.');
+      }
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Could not cancel order.';
+      Alert.alert('Error', msg);
+    } finally {
+      setCancelling(false);
+    }
   }
 
   async function handleReorder() {
@@ -350,102 +348,13 @@ export default function OrderTrackingScreen() {
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f0f5f2' }}>
-
-      {/* â”€â”€ Map (full width, fixed height) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
-      <View style={styles.mapWrapper}>
-        {initialRegion ? (
-          <MapView
-            ref={mapRef}
-            style={styles.map}
-            provider={PROVIDER_GOOGLE}
-            initialRegion={initialRegion}
-            showsCompass={false}
-            showsMyLocationButton={false}
-            mapPadding={{ top: 0, right: 0, bottom: 0, left: 0 }}
-          >
-            {/* Pickup marker */}
-            {tracking?.pickup && (
-              <Marker
-                coordinate={{ latitude: tracking.pickup.lat, longitude: tracking.pickup.lng }}
-                title={tracking.pickup.name}
-                description="Pickup point"
-              >
-                <View style={styles.pickupMarker}>
-                  <MapPin size={16} color="#fff" />
-                </View>
-              </Marker>
-            )}
-
-            {/* Delivery marker */}
-            {deliveryCoord && (
-              <Marker
-                coordinate={{ latitude: deliveryCoord.lat, longitude: deliveryCoord.lng }}
-                title="Your Location"
-                description="Delivery destination"
-              >
-                <View style={styles.deliveryMarker}>
-                  <MapPin size={16} color="#fff" />
-                </View>
-              </Marker>
-            )}
-
-            {/* Route line: pickup â†’ rider â†’ delivery */}
-            {tracking?.pickup && deliveryCoord && (
-              <Polyline
-                coordinates={[
-                  { latitude: tracking.pickup.lat, longitude: tracking.pickup.lng },
-                  ...(riderCoord ? [{ latitude: riderCoord.lat, longitude: riderCoord.lng }] : []),
-                  { latitude: deliveryCoord.lat, longitude: deliveryCoord.lng },
-                ]}
-                strokeColor="#3d6b4f"
-                strokeWidth={3}
-                lineDashPattern={[8, 4]}
-              />
-            )}
-
-            {/* Rider marker */}
-            {riderCoord && (
-              <Marker
-                coordinate={{ latitude: riderCoord.lat, longitude: riderCoord.lng }}
-                title="Your Rider"
-                anchor={{ x: 0.5, y: 0.5 }}
-              >
-                <RiderMarker bearing={tracking?.rider?.bearing ?? 0} />
-              </Marker>
-            )}
-          </MapView>
-        ) : (
-          <View style={[styles.map, styles.mapPlaceholder]}>
-            <MapPin size={32} color="#3d6b4f" />
-            <Text style={styles.mapPlaceholderText}>Map unavailable{'\n'}(vendor has no coordinates)</Text>
-          </View>
-        )}
-
-        {/* Header overlay */}
-        <View style={styles.headerOverlay}>
-          <TouchableOpacity style={styles.backCircle} onPress={() => router.back()}>
-            <ChevronLeft size={20} color="#374151" />
-          </TouchableOpacity>
-          <View style={styles.headerTitle}>
-            <Text style={styles.headerTitleText}>Order Tracking</Text>
-          </View>
-          <View style={{ width: 38 }} />
-        </View>
-
-        {/* ETA chip */}
-        {tracking?.rider?.status_message && (
-          <View style={styles.etaChip}>
-            <Text style={styles.etaText}>{tracking.rider.status_message}</Text>
-          </View>
-        )}
-
-        {/* Live dot */}
-        {riderCoord && (
-          <View style={styles.liveBadge}>
-            <View style={styles.liveDot} />
-            <Text style={styles.liveText}>LIVE</Text>
-          </View>
-        )}
+      {/* Header bar */}
+      <View style={styles.topBarHeader}>
+        <TouchableOpacity style={styles.backCircle} onPress={() => router.back()}>
+          <ChevronLeft size={20} color="#374151" />
+        </TouchableOpacity>
+        <Text style={styles.topBarHeaderTitle}>Order Details</Text>
+        <View style={{ width: 38 }} />
       </View>
 
       {/* â”€â”€ Bottom sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
@@ -534,6 +443,35 @@ export default function OrderTrackingScreen() {
                 </View>
               ))}
             </ScrollView>
+          </View>
+        )}
+
+        {/* Payment Details card */}
+        {order && (
+          <View style={styles.card}>
+            <Text style={styles.sectionTitle}>Payment Details</Text>
+            <View style={styles.billingRow}>
+              <Text style={styles.billingLabel}>Payment Method</Text>
+              <Text style={[styles.billingValue, { fontWeight: '700', color: '#1a6b5a' }]}>
+                {order.payment_method === 'cod' ? 'Cash on Delivery' : 'Online Payment (UPI / Razorpay)'}
+              </Text>
+            </View>
+            <View style={styles.billingRow}>
+              <Text style={styles.billingLabel}>Payment Status</Text>
+              <Text style={[
+                styles.billingValue,
+                { fontWeight: '700' },
+                order.payment_status === 'paid' ? { color: '#16a34a' } : order.payment_status === 'failed' ? { color: '#dc2626' } : { color: '#d97706' }
+              ]}>
+                {order.payment_status ? order.payment_status.toUpperCase() : 'PENDING'}
+              </Text>
+            </View>
+            {order.payment_id && (
+              <View style={styles.billingRow}>
+                <Text style={styles.billingLabel}>Transaction ID</Text>
+                <Text style={[styles.billingValue, { fontSize: 12 }]}>{order.payment_id}</Text>
+              </View>
+            )}
           </View>
         )}
 
@@ -647,13 +585,13 @@ export default function OrderTrackingScreen() {
           </View>
         )}
 
-        {/* Cancel Order action — only for pending orders */}
-        {order?.order_status === 'pending' && (
+        {/* Cancel Order action — for active/pending/confirmed orders */}
+        {(order?.order_status === 'pending' || order?.order_status === 'pending_payment' || order?.order_status === 'confirmed') && (
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Order Actions</Text>
             <TouchableOpacity
               style={styles.cancelBtn}
-              onPress={handleCancelOrder}
+              onPress={() => setShowCancelModal(true)}
               disabled={cancelling}
             >
               {cancelling
@@ -667,6 +605,44 @@ export default function OrderTrackingScreen() {
         <Text style={styles.pollNote}>Updates every 5 seconds</Text>
 
       </ScrollView>
+
+      {/* Cancel Reason Modal */}
+      {showCancelModal && (
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalSheet}>
+            <Text style={styles.modalTitle}>Cancel Order</Text>
+            <Text style={styles.modalSub}>Please tell us why you are cancelling this order so we can improve our process.</Text>
+            <Text style={styles.modalLabel}>Reason for Cancellation *</Text>
+            <TextInput
+              style={styles.modalInput}
+              placeholder="e.g. Placed order by mistake, changed mind, incorrect address..."
+              placeholderTextColor="#9ca3af"
+              value={cancelReason}
+              onChangeText={setCancelReason}
+              multiline
+              numberOfLines={3}
+            />
+            <View style={styles.modalBtnRow}>
+              <TouchableOpacity
+                style={styles.modalBtnCancel}
+                onPress={() => { setShowCancelModal(false); setCancelReason(''); }}
+              >
+                <Text style={styles.modalBtnCancelText}>Keep Order</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.modalBtnConfirm, cancelling && { opacity: 0.6 }]}
+                onPress={handleCancelOrderWithReason}
+                disabled={cancelling}
+              >
+                {cancelling
+                  ? <ActivityIndicator size="small" color="#fff" />
+                  : <Text style={styles.modalBtnConfirmText}>Cancel Order</Text>
+                }
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      )}
     </SafeAreaView>
   );
 }
@@ -676,6 +652,22 @@ export default function OrderTrackingScreen() {
 const styles = StyleSheet.create({
   loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f5f2', gap: 12 },
   loadingText: { color: '#6b7280', fontSize: 14 },
+
+  topBarHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderColor: '#e5e7eb',
+  },
+  topBarHeaderTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1f2937',
+  },
 
   // Map
   mapWrapper: { height: MAP_HEIGHT, position: 'relative' },

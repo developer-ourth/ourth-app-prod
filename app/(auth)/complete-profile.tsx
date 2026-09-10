@@ -36,7 +36,8 @@ export default function CompleteProfileScreen() {
   const [email, setEmail] = useState(params.type === 'email' ? params.identifier || '' : '');
   const [phone, setPhone] = useState(params.type === 'phone' ? params.identifier || '' : '');
   
-  const [isBusiness, setIsBusiness] = useState(false);
+  const [userType, setUserType] = useState<'hawker' | 'business'>('hawker');
+  const isBusiness = userType === 'business';
   const [businessName, setBusinessName] = useState('');
   const [gstin, setGstin] = useState('');
 
@@ -47,9 +48,15 @@ export default function CompleteProfileScreen() {
       Alert.alert('Validation', 'Please enter your name.');
       return;
     }
-    if (isBusiness && !businessName.trim()) {
-      Alert.alert('Validation', 'Please enter your business name.');
-      return;
+    if (isBusiness) {
+      if (!businessName.trim()) {
+        Alert.alert('Validation', 'Please enter your business name.');
+        return;
+      }
+      if (!gstin.trim()) {
+        Alert.alert('Validation', 'GSTIN number is compulsory for business registration.');
+        return;
+      }
     }
 
     setLoading(true);
@@ -64,7 +71,7 @@ export default function CompleteProfileScreen() {
         password: securePassword,
         password_confirmation: securePassword,
         role: isBusiness ? 'vendor' : 'consumer',
-        ...(isBusiness && { business_name: businessName, gstin }),
+        ...(isBusiness && { business_name: businessName, gstin: gstin.trim().toUpperCase() }),
       };
 
       const { data } = await api.post('/auth/register', payload);
@@ -91,18 +98,34 @@ export default function CompleteProfileScreen() {
           <Text style={styles.headerTitle}>Complete Profile</Text>
           <Text style={styles.subtitle}>Tell us a bit more about yourself to finish signing up.</Text>
 
-          {/* Business Toggle */}
-          <View style={styles.toggleContainer}>
-            <Text style={styles.toggleLabel}>I am registering as a business</Text>
-            <Switch
-              value={isBusiness}
-              onValueChange={setIsBusiness}
-              trackColor={{ false: 'rgba(255,255,255,0.3)', true: '#25784C' }}
-              thumbColor={isBusiness ? '#ffffff' : '#f4f3f4'}
-            />
+          {/* Account Type Selection */}
+          <Text style={styles.label}>Account Type</Text>
+          <View style={{ flexDirection: 'row', gap: 10, marginBottom: 20, marginTop: 4 }}>
+            <TouchableOpacity
+              style={[
+                styles.input,
+                { flex: 1, alignItems: 'center', justifyContent: 'center' },
+                !isBusiness && { backgroundColor: '#1A5C2E', borderColor: '#1A5C2E' },
+              ]}
+              onPress={() => setUserType('hawker')}
+              activeOpacity={0.8}
+            >
+              <Text style={[{ fontSize: 16 * SX, fontWeight: '700', color: '#1A5C2E' }, !isBusiness && { color: '#ffffff' }]}>Hawker</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.input,
+                { flex: 1, alignItems: 'center', justifyContent: 'center' },
+                isBusiness && { backgroundColor: '#1A5C2E', borderColor: '#1A5C2E' },
+              ]}
+              onPress={() => setUserType('business')}
+              activeOpacity={0.8}
+            >
+              <Text style={[{ fontSize: 16 * SX, fontWeight: '700', color: '#1A5C2E' }, isBusiness && { color: '#ffffff' }]}>Business</Text>
+            </TouchableOpacity>
           </View>
 
-          <Text style={styles.label}>Full Name</Text>
+          <Text style={styles.label}>Full Name *</Text>
           <TextInput style={styles.input} value={name} onChangeText={setName} placeholder="John Doe" placeholderTextColor="rgba(60,80,60,0.6)" />
 
           <Text style={[styles.label, { marginTop: 16 }]}>Email</Text>
@@ -113,11 +136,11 @@ export default function CompleteProfileScreen() {
 
           {isBusiness && (
             <>
-              <Text style={[styles.label, { marginTop: 16 }]}>Business Name</Text>
+              <Text style={[styles.label, { marginTop: 16 }]}>Business Name *</Text>
               <TextInput style={styles.input} value={businessName} onChangeText={setBusinessName} placeholder="Acme Corp" placeholderTextColor="rgba(60,80,60,0.6)" />
 
-              <Text style={[styles.label, { marginTop: 16 }]}>GSTIN (Optional)</Text>
-              <TextInput style={styles.input} value={gstin} onChangeText={setGstin} placeholder="22AAAAA0000A1Z5" placeholderTextColor="rgba(60,80,60,0.6)" autoCapitalize="characters" />
+              <Text style={[styles.label, { marginTop: 16 }]}>GSTIN Number *</Text>
+              <TextInput style={styles.input} value={gstin} onChangeText={(t) => setGstin(t.toUpperCase())} placeholder="22AAAAA0000A1Z5" placeholderTextColor="rgba(60,80,60,0.6)" autoCapitalize="characters" maxLength={15} />
             </>
           )}
 

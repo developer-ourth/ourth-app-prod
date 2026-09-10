@@ -73,7 +73,7 @@ export default function CartScreen() {
   const [selectedAddress, setSelectedAddress] = useState<Address | null>(null);
   const [showAddressPicker, setShowAddressPicker] = useState(false);
   const [showPaymentPicker, setShowPaymentPicker] = useState(false);
-  const [selectedPayment, setSelectedPayment] = useState<'cod' | 'upi'>('cod');
+  const [selectedPayment, setSelectedPayment] = useState<'cod' | 'upi'>('upi');
   const [suggestedProducts, setSuggestedProducts] = useState<Product[]>([]);
 
   const [showCouponPicker, setShowCouponPicker] = useState(false);
@@ -106,9 +106,9 @@ export default function CartScreen() {
     }
   }, []);
 
-  const PAYMENT_OPTIONS: { key: 'cod' | 'upi'; label: string; sub: string }[] = [
+  const PAYMENT_OPTIONS: { key: 'cod' | 'upi'; label: string; sub: string; highlighted?: boolean }[] = [
+    { key: 'upi',  label: 'Online Payment (UPI / Paytm / Cards / NetBanking)', sub: '⚡ Powered by Razorpay (Recommended & Fast)', highlighted: true },
     { key: 'cod', label: 'Cash on Delivery', sub: 'Pay when your order arrives' },
-    { key: 'upi',  label: 'UPI / Paytm',     sub: 'Secure online payment via Razorpay' },
   ];
 
   useEffect(() => {
@@ -317,17 +317,23 @@ export default function CartScreen() {
 
               if (!isCod && createdOrderId) {
                 if (msg === 'Payment cancelled by user.') {
-                  Alert.alert('Payment Cancelled', 'You closed the Razorpay checkout before completing payment.', [
-                    { text: 'OK', onPress: () => router.replace('/(tabs)/orders') },
-                  ]);
+                  Alert.alert(
+                    'Payment Failed / Cancelled ⚠️',
+                    'You cancelled or closed the Razorpay payment window before completion. Your order has been recorded with pending payment.',
+                    [
+                      { text: 'View Orders', onPress: () => router.replace('/(tabs)/orders') },
+                      { text: 'OK', style: 'cancel' },
+                    ],
+                  );
                   return;
                 }
 
                 Alert.alert(
-                  'Payment Failed',
-                  msg,
+                  'Payment Failed ❌',
+                  `Payment processing failed: ${msg}`,
                   [
-                    { text: 'OK', onPress: () => router.replace('/(tabs)/orders') },
+                    { text: 'View Orders', onPress: () => router.replace('/(tabs)/orders') },
+                    { text: 'OK', style: 'cancel' },
                   ],
                 );
               } else {

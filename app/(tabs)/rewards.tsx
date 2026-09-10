@@ -134,18 +134,24 @@ export default function RewardsScreen() {
             refreshControl={
               <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={['#16a34a']} />
             }
-            renderItem={({ item }) => (
-              <View style={styles.txCard}>
-                <View style={styles.txLeft}>
-                  <Text style={styles.txOrderLabel}>Order ID:</Text>
-                  <Text style={styles.txOrderId} numberOfLines={1}>{item.source || item.description}</Text>
+            renderItem={({ item }) => {
+              const isEarned = (item.points ?? 0) >= 0;
+              const formattedDate = item.created_at ? new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
+              return (
+                <View style={styles.txCard}>
+                  <View style={styles.txLeft}>
+                    <Text style={styles.txOrderId} numberOfLines={1}>{item.description || item.source || 'Green Points'}</Text>
+                    {formattedDate ? <Text style={styles.txOrderLabel}>{formattedDate}</Text> : null}
+                  </View>
+                  <View style={styles.txRight}>
+                    <Leaf size={18} color={isEarned ? '#16a34a' : '#dc2626'} />
+                    <Text style={[styles.txPoints, isEarned ? { color: '#16a34a' } : { color: '#dc2626' }]}>
+                      {isEarned ? `+${item.points}` : `${item.points}`} leaves
+                    </Text>
+                  </View>
                 </View>
-                <View style={styles.txRight}>
-                  <Leaf size={18} color="#9ca3af" />
-                  <Text style={styles.txPoints}>{item.points} leaves</Text>
-                </View>
-              </View>
-            )}
+              );
+            }}
             ListEmptyComponent={
               <View style={styles.empty}>
                 <Leaf size={48} color="#000000" />
