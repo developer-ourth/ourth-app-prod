@@ -92,25 +92,13 @@ export default function HomeScreen() {
   const carouselRef = useRef<FlatList>(null);
   const [carouselIndex, setCarouselIndex] = useState(0);
 
-  // Dynamic slides combining backend banner settings with default promotional slides
+  // Dynamic slides combining backend banner settings
   const bannerSlides = [
     {
       id: '1',
-      tagline: bannerTagline || 'MONSOON Big Sale',
-      subtagline: bannerSubtagline || 'DISCOUNT UP TO 40% OFF',
+      tagline: bannerTagline ?? '',
+      subtagline: bannerSubtagline ?? '',
       image: bannerImageUrl || '',
-    },
-    {
-      id: '2',
-      tagline: '100% Compostable & Eco-Friendly',
-      subtagline: 'Sustainable Dining, Thoughtfully Designed',
-      image: '',
-    },
-    {
-      id: '3',
-      tagline: 'Bulk Wholesale Orders Available',
-      subtagline: 'Direct Factory Rates for B2B & Restaurants',
-      image: '',
     },
   ];
 
@@ -473,8 +461,8 @@ export default function HomeScreen() {
                           isMuted
                           useNativeControls={false}
                         />
-                        <Text style={styles.bannerTagline}>{item.tagline}</Text>
-                        <Text style={styles.bannerSubTagline}>{item.subtagline}</Text>
+                        {Boolean(item.tagline) && <Text style={styles.bannerTagline}>{item.tagline}</Text>}
+                        {Boolean(item.subtagline) && <Text style={styles.bannerSubTagline}>{item.subtagline}</Text>}
                       </View>
                     ) : (
                       <ImageBackground
@@ -483,8 +471,8 @@ export default function HomeScreen() {
                         imageStyle={{ width: '100%', height: '100%', resizeMode: 'cover' }}
                         resizeMode="cover"
                       >
-                        <Text style={styles.bannerTagline}>{item.tagline}</Text>
-                        <Text style={styles.bannerSubTagline}>{item.subtagline}</Text>
+                        {Boolean(item.tagline) && <Text style={styles.bannerTagline}>{item.tagline}</Text>}
+                        {Boolean(item.subtagline) && <Text style={styles.bannerSubTagline}>{item.subtagline}</Text>}
                       </ImageBackground>
                     )}
                   </View>
