@@ -532,7 +532,7 @@ export default function CartScreen() {
                   style={[StyleSheet.absoluteFill, { opacity: 0.8 }]}
                   pointerEvents="none"
                 />
-                <View style={{ flexDirection: 'row', alignItems: 'center', justify: 'space-between', justifyContent: 'space-between' }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
                   <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                     <Tag size={20} color="#166534" />
                     <Text style={{ fontSize: 15, fontWeight: '700', color: '#166534' }}>Have an Agent Code?</Text>
