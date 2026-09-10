@@ -432,7 +432,7 @@ export default function HomeScreen() {
               <ImageBackground
                 source={bannerImageUrl && bannerImageUrl !== '' ? { uri: fixAssetUrl(bannerImageUrl) } : undefined}
                 style={styles.bannerContent}
-                imageStyle={{ borderRadius: 0 }}
+                imageStyle={{ width: '100%', height: '100%', resizeMode: 'cover' }}
                 resizeMode="cover"
               >
                 <Text style={styles.bannerTagline}>{bannerTagline}</Text>
@@ -571,8 +571,8 @@ const styles = StyleSheet.create({
   productPrice:            { color: '#0D3A27', fontSize: 16, fontWeight: '600', margin: 10 },
   addBtn:                  { position: 'absolute', bottom: -1, right: -1, backgroundColor: '#F2D48A', borderTopLeftRadius: 14, borderBottomRightRadius: 20, paddingHorizontal: 18, paddingVertical: 9, elevation: 3 },
   addBtnText:              { color: '#0D3A27', fontWeight: '700', fontSize: 14 },
-  bannerClip:              { overflow: 'hidden', zIndex: 1, elevation: 1 },
-  bannerContent:           { width: '100%', height: 160, justifyContent: 'center', alignItems: 'center', paddingHorizontal: 20 },
+  bannerClip:              { width: '100%', overflow: 'hidden', zIndex: 1, elevation: 1 },
+  bannerContent:           { width: '100%', height: 160, justifyContent: 'center', alignItems: 'center' },
   bannerTagline:           { color: '#fde047', fontSize: 22, fontWeight: '800', textAlign: 'center' },
   bannerSubTagline:        { color: '#ffffff', fontSize: 14, marginTop: 6, textAlign: 'center' },
   curveContainer:          { width: '100%', height: 40, alignItems: 'center' },
