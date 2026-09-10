@@ -268,12 +268,10 @@ export default function HomeScreen() {
             />
           </TouchableOpacity>
           {item.primary_image_url ? (
-            <ExpoImage
+            <Image
               source={{ uri: fixAssetUrl(item.primary_image_url) }}
               style={styles.productImage}
-              contentFit="contain"
-              transition={300}
-              cachePolicy="memory-disk"
+              resizeMode="contain"
             />
           ) : (
             <View style={styles.productImagePlaceholder}>
