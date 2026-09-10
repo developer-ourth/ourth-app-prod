@@ -406,8 +406,8 @@ export default function HomeScreen() {
             <ScrollView
               horizontal
               showsHorizontalScrollIndicator={false}
-              style={{ height: 72, flexShrink: 0 }}
-              contentContainerStyle={{ paddingHorizontal: 0, paddingBottom: 6, gap: 16, alignItems: 'center' }}
+              style={{ height: 85, flexShrink: 0 }}
+              contentContainerStyle={{ paddingHorizontal: 0, paddingBottom: 6, gap: 12, alignItems: 'flex-start' }}
             >
               {/* All */}
               <TouchableOpacity
@@ -419,7 +419,7 @@ export default function HomeScreen() {
                   style={[styles.catIcon, activeCat === null && styles.catIconActive]}
                   resizeMode="contain"
                 />
-                <Text style={[styles.catLabel, activeCat === null && styles.catLabelActive]}>All</Text>
+                <Text style={[styles.catLabel, activeCat === null && styles.catLabelActive]} numberOfLines={2}>All</Text>
               </TouchableOpacity>
 
               {categories.map(c => (
@@ -437,7 +437,7 @@ export default function HomeScreen() {
                   ) : (
                     <Text style={styles.catEmoji}>🌿</Text>
                   )}
-                  <Text style={[styles.catLabel, activeCat === c.id && styles.catLabelActive]}>{c.name}</Text>
+                  <Text style={[styles.catLabel, activeCat === c.id && styles.catLabelActive]} numberOfLines={2}>{c.name}</Text>
                 </TouchableOpacity>
               ))}
             </ScrollView>
@@ -598,11 +598,11 @@ const styles = StyleSheet.create({
   voiceSubtext:     { fontSize: 13, color: '#6b7280', marginBottom: 20 },
   voiceCloseBtn:    { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1, borderColor: '#d1d5db' },
   voiceCloseText:   { fontSize: 14, fontWeight: '600', color: '#4b5563' },
-  catItem:          { alignItems: 'center', gap: 4, paddingVertical: 6, marginTop: 12, },
+  catItem:          { alignItems: 'center', gap: 4, paddingVertical: 4, width: 80 },
   catEmoji:         { fontSize: 28, opacity: 1 },
   catIcon:          { width: 36, height: 36, opacity: 0.7, tintColor: '#ffffff' },
   catIconActive:    { tintColor: '#fde047', opacity: 1 },
-  catLabel:         { fontSize: 16, color: '#e5e7eb' },
+  catLabel:         { fontSize: 13, color: '#e5e7eb', textAlign: 'center', flexWrap: 'wrap' },
   catLabelActive:   { fontWeight: '700', color: '#ffffff' },
   loadingWrap:      { flex: 1, alignItems: 'center', justifyContent: 'center' },
   emptyWrap:        { alignItems: 'center', paddingVertical: 64 },
