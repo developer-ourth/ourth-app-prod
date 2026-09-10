@@ -33,18 +33,37 @@ try {
 const RAZORPAY_KEY_ID = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID ?? '';
 
 function getPaymentErrorMessage(err: unknown): string {
-  if (typeof err === 'string') return err;
+  if (typeof err === 'string') {
+    try {
+      const parsed = JSON.parse(err);
+      if (parsed?.error?.description && parsed.error.description !== 'undefined') {
+        return parsed.error.description;
+      }
+      if (parsed?.error?.reason) {
+        return `Payment failed (${parsed.error.reason.replace(/_/g, ' ')}). Please try again or switch to COD.`;
+      }
+    } catch {
+      // not JSON string
+    }
+    return err;
+  }
   if (err && typeof err === 'object') {
-    const maybeError = err as { message?: unknown; description?: unknown; code?: unknown };
+    const maybeError = err as { message?: unknown; description?: unknown; code?: unknown; error?: any };
+    if (maybeError.error?.description && maybeError.error.description !== 'undefined') {
+      return maybeError.error.description;
+    }
+    if (maybeError.error?.reason) {
+      return `Payment failed (${maybeError.error.reason.replace(/_/g, ' ')}). Please try again or switch to COD.`;
+    }
     const message = typeof maybeError.message === 'string' && maybeError.message.trim()
       ? maybeError.message.trim()
       : typeof maybeError.description === 'string' && maybeError.description.trim()
         ? maybeError.description.trim()
         : '';
-    if (message) return message;
+    if (message && !message.startsWith('{')) return message;
     if (typeof maybeError.code === 'string' && maybeError.code.trim()) return maybeError.code.trim();
   }
-  return 'Could not complete payment. Please try again.';
+  return 'Payment failed or was cancelled. Please try paying online again or change to Cash on Delivery.';
 }
 
 const { width: W, height: H } = Dimensions.get('window');
@@ -244,8 +263,21 @@ export default function OrderTrackingScreen() {
       Alert.alert('Payment Successful 🎉', 'Your payment has been received!');
       fetchOrder();
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Could not complete online payment.';
-      Alert.alert('Payment Failed', msg);
+      const rawMsg = err instanceof Error ? err.message : getPaymentErrorMessage(err);
+      const isCancelled = rawMsg === 'Payment cancelled by user.';
+      const msg = isCancelled
+        ? 'Payment cancelled. You can try paying online again or switch to Cash on Delivery.'
+        : `Payment could not be completed. Please try again or change to Cash on Delivery.\n\nDetail: ${rawMsg}`;
+
+      Alert.alert(
+        isCancelled ? 'Payment Cancelled' : 'Payment Failed',
+        msg,
+        [
+          { text: 'Try Again', onPress: handlePayOnline },
+          { text: 'Switch to COD', onPress: handleSwitchToCod },
+          { text: 'OK', style: 'cancel' },
+        ],
+      );
     } finally {
       setPayingOnline(false);
     }
