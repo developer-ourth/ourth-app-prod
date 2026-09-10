@@ -18,9 +18,34 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
 import { ChevronLeft, Package, MapPin } from '@/components/icons';
-import api, { fixAssetUrl, API_BASE_URL } from '@/lib/api';
+import api, { fixAssetUrl, API_BASE_URL, orderAPI } from '@/lib/api';
 import * as SecureStore from 'expo-secure-store';
+import { isExpoGo } from '@/lib/pushNotifications';
 import type { Order } from '@/lib/types';
+
+let RazorpayCheckout: any = null;
+try {
+  RazorpayCheckout = require('react-native-razorpay').default;
+} catch (e) {
+  // Silent fallback when running in Expo Go without native modules
+}
+
+const RAZORPAY_KEY_ID = process.env.EXPO_PUBLIC_RAZORPAY_KEY_ID ?? '';
+
+function getPaymentErrorMessage(err: unknown): string {
+  if (typeof err === 'string') return err;
+  if (err && typeof err === 'object') {
+    const maybeError = err as { message?: unknown; description?: unknown; code?: unknown };
+    const message = typeof maybeError.message === 'string' && maybeError.message.trim()
+      ? maybeError.message.trim()
+      : typeof maybeError.description === 'string' && maybeError.description.trim()
+        ? maybeError.description.trim()
+        : '';
+    if (message) return message;
+    if (typeof maybeError.code === 'string' && maybeError.code.trim()) return maybeError.code.trim();
+  }
+  return 'Could not complete payment. Please try again.';
+}
 
 const { width: W, height: H } = Dimensions.get('window');
 const MAP_HEIGHT = Math.floor(H * 0.42);
@@ -161,6 +186,101 @@ export default function OrderTrackingScreen() {
   const [cancelling, setCancelling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
+
+  // Payment state
+  const [payingOnline, setPayingOnline] = useState(false);
+  const [switchingCod, setSwitchingCod] = useState(false);
+
+  async function handlePayOnline() {
+    if (!order?.id) return;
+    const isRazorpayModuleReady = typeof (RazorpayCheckout as { open?: unknown })?.open === 'function';
+    if (isExpoGo || !isRazorpayModuleReady) {
+      Alert.alert(
+        'UPI Not Available',
+        'UPI/Paytm online payment requires a build with Razorpay native module.',
+      );
+      return;
+    }
+
+    setPayingOnline(true);
+    try {
+      const initiateRes = await orderAPI.initiateRazorpayPayment(order.id);
+      const initiateData = initiateRes.data?.data ?? initiateRes.data;
+      const razorpayKey = initiateData.key ?? RAZORPAY_KEY_ID;
+
+      if (!razorpayKey) {
+        throw new Error('Razorpay key is not configured.');
+      }
+
+      let razorpayResponse;
+      try {
+        razorpayResponse = await RazorpayCheckout.open({
+          key: razorpayKey,
+          amount: initiateData.amount,
+          currency: initiateData.currency,
+          name: 'OURTH',
+          description: `Order #${order.order_number ?? order.id}`,
+          order_id: initiateData.razorpay_order_id,
+          prefill: {
+            contact: order.delivery_phone ?? '',
+            name: order.delivery_name ?? '',
+          },
+          theme: { color: '#1a6b5a' },
+        });
+      } catch (paymentErr) {
+        const paymentMessage = getPaymentErrorMessage(paymentErr);
+        if (/cancel|dismiss|back/i.test(paymentMessage)) {
+          throw new Error('Payment cancelled by user.');
+        }
+        throw new Error(paymentMessage);
+      }
+
+      await orderAPI.verifyRazorpayPayment(order.id, {
+        razorpay_order_id: razorpayResponse.razorpay_order_id ?? initiateData.razorpay_order_id,
+        razorpay_payment_id: razorpayResponse.razorpay_payment_id,
+        razorpay_signature: razorpayResponse.razorpay_signature,
+      });
+
+      Alert.alert('Payment Successful 🎉', 'Your payment has been received!');
+      fetchOrder();
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Could not complete online payment.';
+      Alert.alert('Payment Failed', msg);
+    } finally {
+      setPayingOnline(false);
+    }
+  }
+
+  async function handleSwitchToCod() {
+    if (!order?.id) return;
+    Alert.alert(
+      'Switch to Cash on Delivery',
+      'Change payment method to Cash on Delivery (COD) for this order?',
+      [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Change to COD',
+          onPress: async () => {
+            setSwitchingCod(true);
+            try {
+              const res = await api.post(`/me/orders/${order.id}/switch-cod`);
+              if (res.data?.success || res.data?.status) {
+                Alert.alert('Updated', 'Payment method changed to Cash on Delivery.');
+                fetchOrder();
+              } else {
+                Alert.alert('Error', res.data?.message || 'Could not update payment method.');
+              }
+            } catch (err: any) {
+              const msg = err.response?.data?.message || 'Could not change to COD.';
+              Alert.alert('Error', msg);
+            } finally {
+              setSwitchingCod(false);
+            }
+          },
+        },
+      ],
+    );
+  }
 
   async function handleCancelOrderWithReason() {
     if (!order?.id) { return; }
@@ -472,6 +592,55 @@ export default function OrderTrackingScreen() {
                 <Text style={[styles.billingValue, { fontSize: 12 }]}>{order.payment_id}</Text>
               </View>
             )}
+
+            {/* Pending Payment Actions: Pay Online or Switch to COD */}
+            {order.payment_status !== 'paid' && order.order_status !== 'cancelled' && (
+              <View style={{ marginTop: 14, gap: 10 }}>
+                <TouchableOpacity
+                  style={{
+                    backgroundColor: '#1a6b5a',
+                    borderRadius: 12,
+                    paddingVertical: 12,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                  onPress={handlePayOnline}
+                  disabled={payingOnline}
+                >
+                  {payingOnline ? (
+                    <ActivityIndicator size="small" color="#fff" />
+                  ) : (
+                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>
+                      💳 Pay Online (UPI / Paytm / Cards)
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                {order.payment_method !== 'cod' && (
+                  <TouchableOpacity
+                    style={{
+                      backgroundColor: '#f3f4f6',
+                      borderWidth: 1.5,
+                      borderColor: '#d1d5db',
+                      borderRadius: 12,
+                      paddingVertical: 11,
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                    onPress={handleSwitchToCod}
+                    disabled={switchingCod}
+                  >
+                    {switchingCod ? (
+                      <ActivityIndicator size="small" color="#374151" />
+                    ) : (
+                      <Text style={{ color: '#374151', fontWeight: '700', fontSize: 14 }}>
+                        💵 Change to Cash on Delivery (COD)
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
         )}
 
@@ -492,11 +661,28 @@ export default function OrderTrackingScreen() {
             )}
             <View style={styles.billingRow}>
               <Text style={styles.billingLabel}>Delivery Charge</Text>
-              <Text style={styles.billingValue}>₹{deliveryCharge.toFixed(0)}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                {deliveryCharge > 0 ? (
+                  <Text style={[styles.billingValue, { textDecorationLine: 'line-through', color: '#9ca3af' }]}>
+                    ₹{deliveryCharge.toFixed(0)}
+                  </Text>
+                ) : (
+                  <Text style={[styles.billingValue, { textDecorationLine: 'line-through', color: '#9ca3af' }]}>
+                    ₹39
+                  </Text>
+                )}
+                <Text style={[styles.billingValue, { color: '#16a34a', fontWeight: '700' }]}>FREE</Text>
+              </View>
+            </View>
+            <View style={styles.billingRow}>
+              <Text style={styles.billingLabel}>Free Delivery Discount</Text>
+              <Text style={[styles.billingValue, { color: '#16a34a', fontWeight: '700' }]}>
+                -₹{deliveryCharge > 0 ? deliveryCharge.toFixed(0) : '39'}
+              </Text>
             </View>
             {discountAmount > 0 && (
               <View style={styles.billingRow}>
-                <Text style={styles.billingLabel}>Discount</Text>
+                <Text style={styles.billingLabel}>Discount / Coupon</Text>
                 <Text style={[styles.billingValue, { color: '#16a34a' }]}>
                   -₹{discountAmount.toFixed(0)}
                 </Text>
