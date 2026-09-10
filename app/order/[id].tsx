@@ -499,7 +499,11 @@ export default function OrderTrackingScreen() {
   const deliveryCharge = parseFloat(order?.delivery_charge ?? '0');
   const taxAmount = parseFloat(order?.tax_amount ?? '0');
   const discountAmount = parseFloat(order?.discount_amount ?? '0');
-  const grandTotal = parseFloat(order?.total_amount ?? '0');
+  const rawTotal = parseFloat(order?.total_amount ?? '0');
+  // If order was saved with old delivery_charge included in total_amount, subtract deliveryCharge so Grand Total equals ₹201
+  const grandTotal = (deliveryCharge > 0 && rawTotal === subtotal + deliveryCharge)
+    ? subtotal + taxAmount - discountAmount
+    : rawTotal;
 
   return (
     <SafeAreaView style={{ flex: 1, backgroundColor: '#f0f5f2' }}>
