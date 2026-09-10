@@ -257,6 +257,7 @@ export default function CartScreen() {
                 order_type:            isB2B ? 'b2b' : 'b2c',
                 buyer_gstin:           isB2B ? (user as any).vendor?.gstin : undefined,
                 use_green_points:      useGreenPoints,
+                source:                'app',
               });
 
               const createdOrder = orderRes.data?.data ?? orderRes.data;
