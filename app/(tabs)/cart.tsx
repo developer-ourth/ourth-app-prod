@@ -142,6 +142,15 @@ export default function CartScreen() {
       .catch(() => setActiveCoupons([]));
   }, []);
 
+  useEffect(() => {
+    marketplaceAPI.getProducts({ per_page: 10 })
+      .then((res) => {
+        const list: Product[] = res.data?.data ?? res.data ?? [];
+        setSuggestedProducts(list.slice(0, 4));
+      })
+      .catch(() => setSuggestedProducts([]));
+  }, []);
+
   const handleApplyCouponCode = async (codeToApply: string) => {
     if (!codeToApply.trim()) {
       Alert.alert('Invalid Code', 'Please enter a valid coupon code.');
@@ -464,70 +473,72 @@ export default function CartScreen() {
               </View>
 
               {/* You might also like */}
-              <View style={styles.suggestBox}>
-                <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
-                <LinearGradient
-                  colors={['#C8963C', '#F2D48A']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={[StyleSheet.absoluteFill, { opacity: 0.4 }]}
-                  pointerEvents="none"
-                />
-                <Text style={styles.suggestTitle}>You might also like</Text>
-                <View style={styles.suggestRow}>
-                  {suggestedProducts.map((prod) => {
-                    const price = isB2B && prod.wholesale_price !== null && prod.wholesale_price !== undefined
-                      ? parseFloat(prod.wholesale_price)
-                      : (prod.discounted_price
-                        ? parseFloat(prod.discounted_price)
-                        : parseFloat(prod.base_price));
-                    const uri = prod.primary_image_url
-                      ? fixAssetUrl(prod.primary_image_url)
-                      : null;
-                    return (
-                      <TouchableOpacity
-                        key={String(prod.id)}
-                        style={styles.suggestCard}
-                        activeOpacity={0.85}
-                        onPress={() => router.push({ pathname: '/product/[id]', params: { id: String(prod.id) } })}
-                      >
-                        <View style={styles.glassBase}>
-                          <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
-                        </View>
-                        <View style={styles.suggestTop}>
-                          {uri ? (
-                            <Image source={{ uri }} style={styles.suggestImage} resizeMode="contain" />
-                          ) : (
-                            <View style={styles.suggestImagePlaceholder}>
-                              <Text style={{ fontSize: 24 }}>🌿</Text>
-                            </View>
-                          )}
-                          <Text style={styles.suggestName} numberOfLines={1}>{prod.name}</Text>
-                          <Text style={styles.suggestPrice}>
-                            ₹{Math.round(price)}
-                            {isB2B && prod.wholesale_price !== null && (
-                              <Text style={{ fontSize: 8, color: '#1a6b5a', fontWeight: 'bold' }}> B2B</Text>
-                            )}
-                          </Text>
-                        </View>
+              {suggestedProducts.length > 0 && (
+                <View style={styles.suggestBox}>
+                  <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
+                  <LinearGradient
+                    colors={['#C8963C', '#F2D48A']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 1 }}
+                    style={[StyleSheet.absoluteFill, { opacity: 0.4 }]}
+                    pointerEvents="none"
+                  />
+                  <Text style={styles.suggestTitle}>You might also like</Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10, paddingRight: 4 }}>
+                    {suggestedProducts.map((prod) => {
+                      const price = isB2B && prod.wholesale_price !== null && prod.wholesale_price !== undefined
+                        ? parseFloat(prod.wholesale_price)
+                        : (prod.discounted_price
+                          ? parseFloat(prod.discounted_price)
+                          : parseFloat(prod.base_price));
+                      const uri = prod.primary_image_url
+                        ? fixAssetUrl(prod.primary_image_url)
+                        : null;
+                      return (
                         <TouchableOpacity
-                          style={styles.suggestAddBtn}
-                          activeOpacity={0.8}
-                          onPress={async () => {
-                            try {
-                              await addItem(prod.id);
-                            } catch (err: unknown) {
-                              Alert.alert('Error', err instanceof Error ? err.message : 'Could not add item.');
-                            }
-                          }}
+                          key={String(prod.id)}
+                          style={[styles.suggestCard, { width: 140 }]}
+                          activeOpacity={0.85}
+                          onPress={() => router.push({ pathname: '/product/[id]', params: { id: String(prod.id) } })}
                         >
-                          <Text style={styles.suggestAddBtnText}>ADD</Text>
+                          <View style={styles.glassBase}>
+                            <BlurView intensity={28} tint="light" style={StyleSheet.absoluteFill} />
+                          </View>
+                          <View style={styles.suggestTop}>
+                            {uri ? (
+                              <Image source={{ uri }} style={styles.suggestImage} resizeMode="contain" />
+                            ) : (
+                              <View style={styles.suggestImagePlaceholder}>
+                                <Text style={{ fontSize: 24 }}>🌿</Text>
+                              </View>
+                            )}
+                            <Text style={styles.suggestName} numberOfLines={1}>{prod.name}</Text>
+                            <Text style={styles.suggestPrice}>
+                              ₹{Math.round(price)}
+                              {isB2B && prod.wholesale_price !== null && (
+                                <Text style={{ fontSize: 8, color: '#1a6b5a', fontWeight: 'bold' }}> B2B</Text>
+                              )}
+                            </Text>
+                          </View>
+                          <TouchableOpacity
+                            style={styles.suggestAddBtn}
+                            activeOpacity={0.8}
+                            onPress={async () => {
+                              try {
+                                await addItem(prod.id);
+                              } catch (err: unknown) {
+                                Alert.alert('Error', err instanceof Error ? err.message : 'Could not add item.');
+                              }
+                            }}
+                          >
+                            <Text style={styles.suggestAddBtnText}>ADD</Text>
+                          </TouchableOpacity>
                         </TouchableOpacity>
-                      </TouchableOpacity>
-                    );
-                  })}
+                      );
+                    })}
+                  </ScrollView>
                 </View>
-              </View>
+              )}
 
 
               {/* Agent Code Enable/Disable Card */}
