@@ -48,9 +48,13 @@ export default function ProfileScreen() {
   }
 
   async function handleSave() {
+    if (!name.trim() || name.trim().length < 2) {
+      Alert.alert('Validation', 'Name must be at least 2 characters long.');
+      return;
+    }
     setSaving(true);
     try {
-      const { data } = await api.patch<ApiResponse<AuthUser>>('/me/profile', { name, phone });
+      const { data } = await api.patch<ApiResponse<AuthUser>>('/me/profile', { name: name.trim(), phone });
       setProfile(data.data);
       setUser(data.data);
       setEditing(false);
@@ -94,8 +98,14 @@ export default function ProfileScreen() {
             setDeleting(true);
             try {
               await api.delete('/me/account');
-              Alert.alert('Account Deleted', 'Your account has been deleted successfully.');
-              await logout();
+              // Show confirmation alert first, logout inside OK press so
+              // the alert is fully visible before navigation redirects.
+              Alert.alert(
+                'Account Deleted',
+                'Your account has been permanently deleted.',
+                [{ text: 'OK', onPress: () => logout() }],
+                { cancelable: false }
+              );
             } catch (err: unknown) {
               Alert.alert('Error', err instanceof Error ? err.message : 'Failed to delete account.');
             } finally {
@@ -188,9 +198,11 @@ export default function ProfileScreen() {
               <Text style={styles.cardSubText} numberOfLines={1}>
                 {profile?.name}
               </Text>
-              <Text style={styles.cardSubText} numberOfLines={1}>
-                {profile?.gstin ?? 'GST Number'}
-              </Text>
+              {profile?.role === 'vendor' && (
+                <Text style={styles.cardSubText} numberOfLines={1}>
+                  {profile?.gstin ?? 'GST not set'}
+                </Text>
+              )}
 
               {editing && (
                 <TouchableOpacity onPress={() => setEditing(false)} style={{ marginTop: 4 }}>

@@ -7,6 +7,7 @@ import {
   Alert,
   ImageBackground,
   StyleSheet,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
@@ -66,7 +67,7 @@ export default function GeneralInfoScreen() {
             </View>
             <View style={styles.infoRow}>
               <Text style={styles.infoLabel}>Platform</Text>
-              <Text style={styles.infoValue}>Android</Text>
+              <Text style={styles.infoValue}>{Platform.OS === 'ios' ? 'iOS' : 'Android'}</Text>
             </View>
             <View style={[styles.infoRow, { borderBottomWidth: 0 }]}>
               <Text style={styles.infoLabel}>Build</Text>

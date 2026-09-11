@@ -187,10 +187,10 @@ export default function LoginScreen() {
           
           {/* Tabs */}
           <View style={styles.tabContainer}>
-            <TouchableOpacity style={[styles.tab, tab === 'password' && styles.activeTab]} onPress={() => setTab('password')}>
+            <TouchableOpacity style={[styles.tab, tab === 'password' && styles.activeTab]} onPress={() => { setTab('password'); setOtpSent(false); setOtp(''); setIdentifier(''); }}>
               <Text style={[styles.tabText, tab === 'password' && styles.activeTabText]}>Password</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={[styles.tab, tab === 'otp' && styles.activeTab]} onPress={() => setTab('otp')}>
+            <TouchableOpacity style={[styles.tab, tab === 'otp' && styles.activeTab]} onPress={() => { setTab('otp'); setOtpSent(false); setOtp(''); setIdentifier(''); }}>
               <Text style={[styles.tabText, tab === 'otp' && styles.activeTabText]}>OTP</Text>
             </TouchableOpacity>
           </View>
@@ -252,23 +252,40 @@ export default function LoginScreen() {
               )}
 
               <Text style={styles.label}>{otpType === 'phone' ? 'Phone Number' : 'Email Address'}</Text>
-              <TextInput
-                style={styles.input}
-                value={identifier}
-                onChangeText={(text) => {
-                  if (otpType === 'phone') {
-                    setIdentifier(text.replace(/\D/g, '').slice(0, 10));
-                  } else {
+              {otpType === 'phone' ? (
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                  <View style={[styles.input, { width: 54, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }]}>
+                    <Text style={{ fontSize: 16 * SX, fontWeight: '700', color: '#1A5C2E' }}>+91</Text>
+                  </View>
+                  <TextInput
+                    style={[styles.input, { flex: 1 }]}
+                    value={identifier}
+                    onChangeText={(text) => {
+                      setIdentifier(text.replace(/\D/g, '').slice(0, 10));
+                    }}
+                    placeholder="10-digit mobile number"
+                    placeholderTextColor="rgba(60,80,60,0.6)"
+                    editable={!otpSent}
+                    autoCapitalize="none"
+                    keyboardType="phone-pad"
+                    maxLength={10}
+                  />
+                </View>
+              ) : (
+                <TextInput
+                  style={styles.input}
+                  value={identifier}
+                  onChangeText={(text) => {
                     setIdentifier(text);
-                  }
-                }}
-                placeholder={otpType === 'phone' ? '9876543210' : 'you@example.com'}
-                placeholderTextColor="rgba(60,80,60,0.6)"
-                editable={!otpSent}
-                autoCapitalize="none"
-                keyboardType={otpType === 'phone' ? 'phone-pad' : 'email-address'}
-                maxLength={otpType === 'phone' ? 10 : 100}
-              />
+                  }}
+                  placeholder="you@example.com"
+                  placeholderTextColor="rgba(60,80,60,0.6)"
+                  editable={!otpSent}
+                  autoCapitalize="none"
+                  keyboardType="email-address"
+                  maxLength={100}
+                />
+              )}
 
               {otpSent && (
                 <>

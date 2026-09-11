@@ -33,14 +33,21 @@ export default function ForgotPasswordScreen() {
   const [loading, setLoading] = useState(false);
 
   async function handleSend() {
-    if (!email.trim()) {
+    const trimmedEmail = email.trim().toLowerCase();
+    if (!trimmedEmail) {
       Alert.alert('Validation', 'Please enter your email address.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address (e.g. name@example.com).');
       return;
     }
 
     setLoading(true);
     try {
-      await authAPI.forgotPassword(email.trim().toLowerCase());
+      await authAPI.forgotPassword(trimmedEmail);
       setSent(true);
     } catch (err: unknown) {
       Alert.alert('Error', err instanceof Error ? err.message : 'Could not send reset email. Please try again.');
