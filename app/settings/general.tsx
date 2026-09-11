@@ -13,10 +13,11 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight } from '@/components/icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Constants from 'expo-constants';
 
 const BG_IMAGE = require('../../assets/Frame16.png');
 
-const APP_VERSION = '1.0.0';
+const APP_VERSION = Constants.expoConfig?.version ?? '1.0.0';
 
 export default function GeneralInfoScreen() {
   const router = useRouter();

@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { Alert } from 'react-native';
 import { cartAPI } from '@/lib/api';
 import type { Cart } from '@/lib/types';
 
@@ -46,6 +47,35 @@ export const useCartStore = create<CartStore>((set, get) => ({
     try {
       const { data } = await cartAPI.addItem(productId, quantity, productPackId);
       set({ cart: data.data ?? data });
+    } catch (error: any) {
+      const msg = typeof error === 'string' ? error : error?.message || '';
+      if (msg.toLowerCase().includes('vendor')) {
+        // Vendor mismatch detected
+        return new Promise<void>((resolve, reject) => {
+          Alert.alert(
+            'Clear Cart?',
+            'Your cart contains items from another vendor. You can only order from one vendor at a time. Do you want to clear your cart and start a new order with this vendor?',
+            [
+              { text: 'Cancel', style: 'cancel', onPress: () => reject(new Error('Vendor mismatch. Please clear your cart first.')) },
+              {
+                text: 'Clear Cart',
+                style: 'destructive',
+                onPress: async () => {
+                  try {
+                    await get().clearCart();
+                    const { data } = await cartAPI.addItem(productId, quantity, productPackId);
+                    set({ cart: data.data ?? data });
+                    resolve();
+                  } catch (e: any) {
+                    reject(e);
+                  }
+                }
+              }
+            ]
+          );
+        });
+      }
+      throw error;
     } finally {
       set({ addingProductId: null });
     }

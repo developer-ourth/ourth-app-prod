@@ -46,23 +46,34 @@ export default function OrdersScreen() {
   const [loading, setLoading]   = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab]   = useState<Tab>('orders');
+  
+  const [page, setPage] = useState(1);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(true);
 
-  const fetchOrders = useCallback(async () => {
+  const fetchOrders = useCallback(async (pageNum = 1) => {
     try {
-      const { data } = await api.get<PaginatedResponse<Order>>('/me/orders');
-      setOrders(data.data);
+      const { data } = await api.get<PaginatedResponse<Order>>(`/me/orders?page=${pageNum}`);
+      if (pageNum === 1) {
+        setOrders(data.data);
+      } else {
+        setOrders(prev => [...prev, ...data.data]);
+      }
+      setHasMore(data.meta.current_page < data.meta.last_page);
     } catch {
-      setOrders([]);
+      if (pageNum === 1) setOrders([]);
     } finally {
       setLoading(false);
       setRefreshing(false);
+      setLoadingMore(false);
     }
   }, []);
 
   useFocusEffect(
     useCallback(() => {
       setLoading(true);
-      fetchOrders();
+      setPage(1);
+      fetchOrders(1);
     }, [fetchOrders]),
   );
 
@@ -126,9 +137,21 @@ export default function OrdersScreen() {
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
-              onRefresh={() => { setRefreshing(true); fetchOrders(); }}
+              onRefresh={() => { setRefreshing(true); setPage(1); fetchOrders(1); }}
               colors={['#1a6b5a']}
             />
+          }
+          onEndReached={() => {
+            if (hasMore && !loadingMore && !refreshing) {
+              setLoadingMore(true);
+              const nextPage = page + 1;
+              setPage(nextPage);
+              fetchOrders(nextPage);
+            }
+          }}
+          onEndReachedThreshold={0.5}
+          ListFooterComponent={
+            loadingMore ? <ActivityIndicator size="small" color="#1a6b5a" style={{ marginVertical: 20 }} /> : null
           }
           renderItem={({ item }) => {
             const isActive    = ACTIVE_STATUSES.has(item.order_status);
