@@ -17,6 +17,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/lib/store';
+import { Eye, EyeOff } from '@/components/icons';
 
 const { width: W, height: H } = Dimensions.get('window');
 const SX = W / 360;
@@ -33,18 +34,25 @@ export default function ConsumerLoginScreen() {
 
   const [email,    setEmail]    = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [loading,  setLoading]  = useState(false);
 
   async function handleLogin() {
-    if (!email.trim() || !password) {
+    const trimmed = email.trim();
+    if (!trimmed || !password) {
       Alert.alert('Validation', 'Please enter your email and password.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmed)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address (e.g. name@example.com).');
       return;
     }
 
     setLoading(true);
     try {
-      await login(email.trim().toLowerCase(), password);
-      // login() sets token + user in store → root layout redirects to tabs
+      await login(trimmed.toLowerCase(), password);
     } catch (err: unknown) {
       Alert.alert('Login Failed', err instanceof Error ? err.message : 'Invalid credentials. Please try again.');
     } finally {
@@ -87,14 +95,23 @@ export default function ConsumerLoginScreen() {
 
           <View style={styles.fieldWrap}>
             <Text style={styles.label}>Password</Text>
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Your password"
-              placeholderTextColor="rgba(60,80,60,0.6)"
-              secureTextEntry
-            />
+            <View style={styles.passwordWrap}>
+              <TextInput
+                style={[styles.input, { flex: 1, paddingRight: 40 }]}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Enter your password"
+                placeholderTextColor="rgba(60,80,60,0.6)"
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowPassword((prev) => !prev)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                {showPassword ? <EyeOff size={20} color="#2C1F13" /> : <Eye size={20} color="#2C1F13" />}
+              </TouchableOpacity>
+            </View>
           </View>
 
           <TouchableOpacity
@@ -193,6 +210,8 @@ const styles = StyleSheet.create({
     shadowOpacity:     0.08,
     shadowRadius:      4,
   },
+  passwordWrap: { position: 'relative', justifyContent: 'center' },
+  eyeBtn: { position: 'absolute', right: 12 * SX, top: 13 },
 
   forgotWrap: { alignSelf: 'flex-end', paddingRight: 4 * SX },
   forgotText: {

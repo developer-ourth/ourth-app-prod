@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { useAuthStore } from '@/lib/store';
+import { Eye, EyeOff } from '@/components/icons';
 
 const { width: W, height: H } = Dimensions.get('window');
 const SX = W / 360;
@@ -37,17 +38,41 @@ export default function ConsumerRegisterScreen() {
   const [phone,    setPhone]    = useState('');
   const [password, setPassword] = useState('');
   const [confirm,  setConfirm]  = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm]   = useState(false);
   const [loading,  setLoading]  = useState(false);
 
   async function handleSubmit() {
-    if (!name.trim() || !email.trim() || !password) {
-      Alert.alert('Validation', 'Please fill in all required fields.');
+    const trimmedName = name.trim();
+    const trimmedEmail = email.trim();
+    const cleanedPhone = phone.trim().replace(/\D/g, '');
+
+    if (!trimmedName || trimmedName.length < 2) {
+      Alert.alert('Invalid Name', 'Full Name must be at least 2 characters long.');
       return;
     }
+
+    if (!trimmedEmail) {
+      Alert.alert('Validation', 'Please enter your email address.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return;
+    }
+
+    if (cleanedPhone && cleanedPhone.length !== 10) {
+      Alert.alert('Invalid Mobile Number', 'Mobile number must be 10 digits.');
+      return;
+    }
+
     if (password.length < 8) {
-      Alert.alert('Validation', 'Password must be at least 8 characters.');
+      Alert.alert('Validation', 'Password must be at least 8 characters long.');
       return;
     }
+
     if (password !== confirm) {
       Alert.alert('Validation', 'Passwords do not match.');
       return;
@@ -55,8 +80,7 @@ export default function ConsumerRegisterScreen() {
 
     setLoading(true);
     try {
-      await register(name.trim(), email.trim().toLowerCase(), password, 'consumer');
-      // register() sets the token + user in the store → root layout will redirect to tabs
+      await register(trimmedName, trimmedEmail.toLowerCase(), password, 'consumer');
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Something went wrong. Please try again.';
       Alert.alert('Registration Failed', msg);
@@ -95,7 +119,7 @@ export default function ConsumerRegisterScreen() {
               style={styles.input}
               value={name}
               onChangeText={setName}
-              placeholder="Your name"
+              placeholder="Your Full Name"
               placeholderTextColor="rgba(60,80,60,0.6)"
               autoCapitalize="words"
             />
@@ -118,33 +142,52 @@ export default function ConsumerRegisterScreen() {
             <TextInput
               style={styles.input}
               value={phone}
-              onChangeText={setPhone}
-              placeholder="+91 9876543210"
+              onChangeText={(t) => setPhone(t.replace(/\D/g, '').slice(0, 10))}
+              placeholder="9876543210"
               placeholderTextColor="rgba(60,80,60,0.6)"
               keyboardType="phone-pad"
+              maxLength={10}
             />
           </Field>
 
           <Field label="Password">
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Min. 8 characters"
-              placeholderTextColor="rgba(60,80,60,0.6)"
-              secureTextEntry
-            />
+            <View style={styles.passwordWrap}>
+              <TextInput
+                style={[styles.input, { flex: 1, paddingRight: 40 }]}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Min. 8 characters"
+                placeholderTextColor="rgba(60,80,60,0.6)"
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowPassword((prev) => !prev)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                {showPassword ? <EyeOff size={20} color="#2C1F13" /> : <Eye size={20} color="#2C1F13" />}
+              </TouchableOpacity>
+            </View>
           </Field>
 
           <Field label="Confirm Password">
-            <TextInput
-              style={styles.input}
-              value={confirm}
-              onChangeText={setConfirm}
-              placeholder="Repeat your password"
-              placeholderTextColor="rgba(60,80,60,0.6)"
-              secureTextEntry
-            />
+            <View style={styles.passwordWrap}>
+              <TextInput
+                style={[styles.input, { flex: 1, paddingRight: 40 }]}
+                value={confirm}
+                onChangeText={setConfirm}
+                placeholder="Repeat your password"
+                placeholderTextColor="rgba(60,80,60,0.6)"
+                secureTextEntry={!showConfirm}
+              />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowConfirm((prev) => !prev)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                {showConfirm ? <EyeOff size={20} color="#2C1F13" /> : <Eye size={20} color="#2C1F13" />}
+              </TouchableOpacity>
+            </View>
           </Field>
 
           <Text style={styles.disclaimer}>
@@ -247,6 +290,8 @@ const styles = StyleSheet.create({
     shadowOpacity:     0.08,
     shadowRadius:      4,
   },
+  passwordWrap: { position: 'relative', justifyContent: 'center' },
+  eyeBtn: { position: 'absolute', right: 12 * SX, top: 13 },
 
   disclaimer: {
     fontSize:   10 * SX,

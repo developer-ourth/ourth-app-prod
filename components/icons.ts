@@ -37,6 +37,8 @@ import {
   Leaf as _Leaf,
   Pencil as _Pencil,
   Mic as _Mic,
+  Eye as _Eye,
+  EyeOff as _EyeOff,
 } from 'lucide-react-native';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -72,3 +74,5 @@ export const Plus         = _Plus         as AnyIcon;
 export const ExternalLink = _ExternalLink as AnyIcon;
 export const Leaf         = _Leaf         as AnyIcon;
 export const Pencil       = _Pencil       as AnyIcon;
+export const Eye          = _Eye          as AnyIcon;
+export const EyeOff       = _EyeOff       as AnyIcon;

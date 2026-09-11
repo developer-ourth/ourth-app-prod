@@ -45,7 +45,8 @@ export default function RegisterScreen() {
   const [city,         setCity]         = useState('');
   const [state,        setState]        = useState('');
   const [password,     setPassword]     = useState('');
-  const [userType, setUserType]     = useState<'hawker' | 'business'>('hawker');
+  const [showPassword, setShowPassword] = useState(false);
+  const [userType, setUserType]         = useState<'hawker' | 'business'>('hawker');
   const isBusiness = userType === 'business';
 
   const [loading,      setLoading]      = useState(false);
@@ -53,7 +54,6 @@ export default function RegisterScreen() {
   const [showCityPicker,  setShowCityPicker]  = useState(false);
 
   const fetchLocationFromPincode = async (code: string) => {
-    // Local offline prefix fallback (e.g. for Gautam Buddha Nagar/Noida 2013xx and Delhi 11xxxx)
     if (code.startsWith('2013')) {
       setState('Uttar Pradesh');
       setCity('Gautam Buddha Nagar');
@@ -86,8 +86,30 @@ export default function RegisterScreen() {
   };
 
   async function handleSubmit() {
-    if (!name.trim() || !mobile.trim() || password.length < 8) {
-      Alert.alert('Validation', 'Please fill in Name, Mobile, and Password (min 8 chars).');
+    const trimmedName = name.trim();
+    const cleanedMobile = mobile.trim().replace(/\D/g, '');
+    const trimmedEmail = email.trim();
+
+    if (!trimmedName || trimmedName.length < 2) {
+      Alert.alert('Invalid Name', 'Full Name must be at least 2 characters long.');
+      return;
+    }
+
+    if (!cleanedMobile || cleanedMobile.length !== 10) {
+      Alert.alert('Invalid Mobile Number', 'Please enter a valid 10-digit mobile number.');
+      return;
+    }
+
+    if (trimmedEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmedEmail)) {
+        Alert.alert('Invalid Email', 'Please enter a valid email address.');
+        return;
+      }
+    }
+
+    if (password.length < 8) {
+      Alert.alert('Validation', 'Password must be at least 8 characters long.');
       return;
     }
     
@@ -127,9 +149,9 @@ export default function RegisterScreen() {
           success: boolean;
           data: { vendor_id: number; vendor_code: string; token?: string };
         }>('/vendors/register', {
-          name:          name.trim(),
-          email:         email.trim().toLowerCase() || undefined,
-          phone:         mobile.trim(),
+          name:          trimmedName,
+          email:         trimmedEmail ? trimmedEmail.toLowerCase() : undefined,
+          phone:         cleanedMobile,
           password,
           business_name: businessName.trim(),
           gstin:         gst.trim().toUpperCase() || undefined,
@@ -155,9 +177,9 @@ export default function RegisterScreen() {
           success: boolean;
           data: { token: string; user: any };
         }>('/auth/register', {
-          name: name.trim(),
-          email: email.trim().toLowerCase() || `${mobile.trim()}@ourth.com`,
-          phone: mobile.trim(),
+          name: trimmedName,
+          email: trimmedEmail ? trimmedEmail.toLowerCase() : `${cleanedMobile}@ourth.com`,
+          phone: cleanedMobile,
           password,
           password_confirmation: password,
           role: 'consumer',
@@ -205,7 +227,7 @@ export default function RegisterScreen() {
               style={styles.input}
               value={name}
               onChangeText={setName}
-              placeholder="Asteria Xing"
+              placeholder="Your Full Name"
               placeholderTextColor="rgba(60,80,60,0.6)"
               autoCapitalize="words"
             />
@@ -222,7 +244,7 @@ export default function RegisterScreen() {
                 onPress={() => setUserType('hawker')}
                 activeOpacity={0.8}
               >
-                <Text style={[styles.pickerBtnText, !isBusiness && { color: '#ffffff' }]}>Hawker</Text>
+                <Text style={[styles.pickerBtnText, !isBusiness && { color: '#ffffff' }]}>Individual</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={[
@@ -245,7 +267,7 @@ export default function RegisterScreen() {
                   style={styles.input}
                   value={businessName}
                   onChangeText={setBusinessName}
-                  placeholder="Asteria Xing's Shop"
+                  placeholder="Your Business / Shop Name"
                   placeholderTextColor="rgba(60,80,60,0.6)"
                 />
               </Field>
@@ -268,10 +290,11 @@ export default function RegisterScreen() {
             <TextInput
               style={styles.input}
               value={mobile}
-              onChangeText={setMobile}
-              placeholder="+91 8130231669"
+              onChangeText={(t) => setMobile(t.replace(/\D/g, '').slice(0, 10))}
+              placeholder="9876543210"
               placeholderTextColor="rgba(60,80,60,0.6)"
               keyboardType="phone-pad"
+              maxLength={10}
             />
           </Field>
 
@@ -328,14 +351,23 @@ export default function RegisterScreen() {
           )}
 
           <Field label="Create Password">
-            <TextInput
-              style={styles.input}
-              value={password}
-              onChangeText={setPassword}
-              placeholder="Min. 8 characters"
-              placeholderTextColor="rgba(60,80,60,0.6)"
-              secureTextEntry
-            />
+            <View style={styles.passwordWrap}>
+              <TextInput
+                style={[styles.input, { flex: 1, paddingRight: 40 }]}
+                value={password}
+                onChangeText={setPassword}
+                placeholder="Min. 8 characters"
+                placeholderTextColor="rgba(60,80,60,0.6)"
+                secureTextEntry={!showPassword}
+              />
+              <TouchableOpacity
+                style={styles.eyeBtn}
+                onPress={() => setShowPassword((prev) => !prev)}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              >
+                {showPassword ? <EyeOff size={20} color="#1A5C2E" /> : <Eye size={20} color="#1A5C2E" />}
+              </TouchableOpacity>
+            </View>
           </Field>
 
           <Text style={styles.disclaimer}>
@@ -465,6 +497,8 @@ const styles = StyleSheet.create({
     shadowOpacity:     0.08,
     shadowRadius:      4,
   },
+  passwordWrap: { position: 'relative', justifyContent: 'center' },
+  eyeBtn: { position: 'absolute', right: 12 * SX, top: 13 },
 
 
   // ── Disclaimer ──
