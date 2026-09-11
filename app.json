@@ -5,7 +5,7 @@
     "owner": "developer_ourth",
     "scheme": "ourth",
     "version": "1.0.2",
-    "orientation": "portrait",
+    "orientation": "default",
     "icon": "./assets/logof.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
