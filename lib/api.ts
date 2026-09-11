@@ -86,6 +86,7 @@ export const authAPI = {
       password,
       password_confirmation: password,
     }),
+  deleteAccount: () => api.delete<{ success: boolean; message: string }>('/me/account'),
 };
 
 // ─── Marketplace ─────────────────────────────────────────────────────────────

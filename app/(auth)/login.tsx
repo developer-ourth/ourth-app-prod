@@ -133,8 +133,8 @@ export default function LoginScreen() {
 
   async function handleVerifyOtp() {
     const cleanedOtp = otp.trim().replace(/\D/g, '');
-    if (!cleanedOtp || cleanedOtp.length < 4 || cleanedOtp.length > 6) {
-      Alert.alert('Validation', 'Please enter a valid 4 to 6 digit OTP.');
+    if (!cleanedOtp || cleanedOtp.length !== 6) {
+      Alert.alert('Validation', 'Please enter a valid 6-digit OTP.');
       return;
     }
 

@@ -90,8 +90,8 @@ export default function RegisterScreen() {
     const cleanedMobile = mobile.trim().replace(/\D/g, '');
     const trimmedEmail = email.trim();
 
-    if (!trimmedName || trimmedName.length < 2) {
-      Alert.alert('Invalid Name', 'Full Name must be at least 2 characters long.');
+    if (!trimmedName || trimmedName.length < 3) {
+      Alert.alert('Invalid Name', 'Full Name must be at least 3 characters long.');
       return;
     }
 

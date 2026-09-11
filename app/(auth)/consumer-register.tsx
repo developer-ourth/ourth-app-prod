@@ -47,8 +47,8 @@ export default function ConsumerRegisterScreen() {
     const trimmedEmail = email.trim();
     const cleanedPhone = phone.trim().replace(/\D/g, '');
 
-    if (!trimmedName || trimmedName.length < 2) {
-      Alert.alert('Invalid Name', 'Full Name must be at least 2 characters long.');
+    if (!trimmedName || trimmedName.length < 3) {
+      Alert.alert('Invalid Name', 'Full Name must be at least 3 characters long.');
       return;
     }
 
