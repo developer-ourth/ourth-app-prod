@@ -16,12 +16,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import MapView, { Marker, Polyline, PROVIDER_GOOGLE, type Region } from 'react-native-maps';
-import { ChevronLeft, Package, MapPin } from '@/components/icons';
-import api, { fixAssetUrl, API_BASE_URL, orderAPI } from '@/lib/api';
-import * as SecureStore from 'expo-secure-store';
+import { ChevronLeft, Package, MapPin, Star } from '@/components/icons';
+import api, { fixAssetUrl, orderAPI } from '@/lib/api';
 import { isExpoGo } from '@/lib/pushNotifications';
 import type { Order } from '@/lib/types';
+import { LinearGradient } from 'expo-linear-gradient';
 
 let RazorpayCheckout: any = null;
 try {
@@ -66,38 +65,26 @@ function getPaymentErrorMessage(err: unknown): string {
   return 'Payment failed or was cancelled. Please try paying online again or change to Cash on Delivery.';
 }
 
-const { width: W, height: H } = Dimensions.get('window');
-const MAP_HEIGHT = Math.floor(H * 0.42);
-const POLL_MS = 5000;
+const { width: W } = Dimensions.get('window');
+const POLL_MS = 10000;
 
-// â”€â”€â”€ Status config â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Timeline steps ───────────────────────────────────────────────────────────
 
-const STATUS_STEPS = ['pending_payment', 'pending', 'confirmed', 'processing', 'out_for_delivery', 'delivered'];
-const STATUS_LABELS = ['Pending Payment', 'Received', 'Preparing', 'Ready Box', 'Out for Delivery', 'Delivered'];
+const STATUS_STEPS = [
+  'pending',
+  'confirmed',
+  'processing',
+  'out_for_delivery',
+  'delivered',
+] as const;
 
-const STATUS_DISPLAY: Record<string, { title: string; subtitle: string }> = {
-  pending_payment: { title: 'Pending Payment', subtitle: 'Payment pending for online order' },
-  pending: { title: 'Order Received', subtitle: 'Your order is being confirmed' },
-  confirmed: { title: 'Order Confirmed', subtitle: 'Being prepared by vendor' },
-  processing: { title: 'Ready to Ship', subtitle: 'Your order is packed and ready' },
-  out_for_delivery: { title: 'Out for Delivery', subtitle: 'Your rider is on the way!' },
-  delivered: { title: 'Order Delivered', subtitle: 'Thank you for shopping with us!' },
-  cancelled: { title: 'Order Cancelled', subtitle: 'This order has been cancelled' },
+const STEP_CONFIG: Record<string, { label: string; sublabel: string; emoji: string }> = {
+  pending:          { label: 'Order Placed',       sublabel: 'Your order has been received',      emoji: '📦' },
+  confirmed:        { label: 'Confirmed',           sublabel: 'Vendor is preparing your order',    emoji: '✅' },
+  processing:       { label: 'Packed & Ready',      sublabel: 'Your order is packed and ready',    emoji: '🎁' },
+  out_for_delivery: { label: 'Out for Delivery',    sublabel: 'Rider is on the way to you',        emoji: '🛵' },
+  delivered:        { label: 'Delivered',           sublabel: 'Order delivered successfully!',     emoji: '🎉' },
 };
-
-// â”€â”€â”€ Types â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-interface LatLng { lat: number; lng: number }
-
-interface TrackingData {
-  order_id: number;
-  order_number: string;
-  order_status: string;
-  pickup: (LatLng & { name: string }) | null;
-  rider: (LatLng & { bearing: number; status_message: string | null; updated_at: string }) | null;
-}
-
-// â”€â”€â”€ Helpers â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 function ordinalDate(dateStr: string): string {
   const d = new Date(dateStr);
@@ -114,122 +101,202 @@ function ordinalDate(dateStr: string): string {
   return `${day}${suffix} ${month}, ${d.getFullYear()}`;
 }
 
-/** Build a LatLng ~500m north-east of pickup as the delivery pin placeholder */
-function deliveryFromPickup(pickup: LatLng): LatLng {
-  return { lat: pickup.lat + 0.005, lng: pickup.lng + 0.007 };
+function formatTime(dateStr: string): string {
+  const d = new Date(dateStr);
+  return d.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true });
 }
 
-function regionFromPoints(points: LatLng[]): Region {
-  const lats = points.map((p) => p.lat);
-  const lngs = points.map((p) => p.lng);
-  const minLat = Math.min(...lats);
-  const maxLat = Math.max(...lats);
-  const minLng = Math.min(...lngs);
-  const maxLng = Math.max(...lngs);
-  return {
-    latitude: (minLat + maxLat) / 2,
-    longitude: (minLng + maxLng) / 2,
-    latitudeDelta: Math.max(maxLat - minLat, 0.01) * 1.6,
-    longitudeDelta: Math.max(maxLng - minLng, 0.01) * 1.6,
-  };
-}
+// ─── Timeline Component ───────────────────────────────────────────────────────
 
-// â”€â”€â”€ Status Progress â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-
-function StatusProgress({ status }: { status: string }) {
-  const currentIndex = STATUS_STEPS.indexOf(status);
+function OrderTimeline({ order }: { order: Order }) {
+  const status = order.order_status;
   const isCancelled = status === 'cancelled';
-  const pct = isCancelled ? 0 : (currentIndex / (STATUS_STEPS.length - 1)) * 100;
+  const isPendingPayment = order.payment_status === 'pending' && status === 'pending';
+  const currentIndex = STATUS_STEPS.indexOf(status as any);
+
+  const pulseAnim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(pulseAnim, { toValue: 1.25, duration: 700, useNativeDriver: true }),
+        Animated.timing(pulseAnim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, []);
+
+  if (isCancelled) {
+    return (
+      <View style={tl.cancelledBox}>
+        <Text style={tl.cancelledEmoji}>❌</Text>
+        <Text style={tl.cancelledTitle}>Order Cancelled</Text>
+        {order.cancellation_reason ? (
+          <Text style={tl.cancelledReason}>Reason: {order.cancellation_reason}</Text>
+        ) : null}
+        {order.cancelled_at ? (
+          <Text style={tl.cancelledDate}>{ordinalDate(order.cancelled_at)} · {formatTime(order.cancelled_at)}</Text>
+        ) : null}
+      </View>
+    );
+  }
 
   return (
-    <View style={styles.progressWrap}>
-      <View style={styles.progressTrack}>
-        <View style={[styles.progressFill, { width: `${pct}%` }]} />
-      </View>
-      <View style={styles.stepsRow}>
-        {STATUS_LABELS.map((label, i) => {
-          const done = !isCancelled && i <= currentIndex;
-          const active = !isCancelled && i === currentIndex;
-          return (
-            <View key={label} style={styles.stepItem}>
-              <View style={[styles.stepDot, done && styles.stepDotDone, active && styles.stepDotActive]}>
-                {done && !active && <View style={styles.stepDotInner} />}
-              </View>
-              <Text style={[styles.stepLabel, done && styles.stepLabelDone]} numberOfLines={2}>
-                {label}
-              </Text>
+    <View style={tl.wrap}>
+      {STATUS_STEPS.map((step, i) => {
+        const cfg = STEP_CONFIG[step];
+        const isDone = currentIndex >= i && !isCancelled;
+        const isActive = currentIndex === i && !isCancelled;
+        const isLast = i === STATUS_STEPS.length - 1;
+
+        // Get timestamp for done steps
+        let timestamp: string | null = null;
+        if (isDone) {
+          if (step === 'pending' && order.created_at) timestamp = ordinalDate(order.created_at) + ' · ' + formatTime(order.created_at);
+          if (step === 'confirmed' && (order as any).confirmed_at) timestamp = ordinalDate((order as any).confirmed_at) + ' · ' + formatTime((order as any).confirmed_at);
+          if (step === 'processing' && (order as any).dispatched_at) timestamp = ordinalDate((order as any).dispatched_at) + ' · ' + formatTime((order as any).dispatched_at);
+          if (step === 'out_for_delivery' && (order as any).dispatched_at) timestamp = 'In Transit';
+          if (step === 'delivered' && order.delivered_at) timestamp = ordinalDate(order.delivered_at) + ' · ' + formatTime(order.delivered_at);
+        }
+
+        return (
+          <View key={step} style={tl.row}>
+            {/* Left: dot + line */}
+            <View style={tl.dotCol}>
+              {isActive ? (
+                <Animated.View style={[tl.dotActive, { transform: [{ scale: pulseAnim }] }]}>
+                  <Text style={{ fontSize: 13 }}>{cfg.emoji}</Text>
+                </Animated.View>
+              ) : isDone ? (
+                <View style={tl.dotDone}>
+                  <Text style={{ fontSize: 12 }}>✓</Text>
+                </View>
+              ) : (
+                <View style={tl.dotPending} />
+              )}
+              {!isLast && (
+                <View style={[tl.line, isDone && tl.lineDone]} />
+              )}
             </View>
-          );
-        })}
-      </View>
+
+            {/* Right: content */}
+            <View style={[tl.content, isLast && { paddingBottom: 0 }]}>
+              <Text style={[tl.stepLabel, isDone && tl.stepLabelDone, isActive && tl.stepLabelActive]}>
+                {cfg.label}
+              </Text>
+              <Text style={[tl.stepSub, isActive && tl.stepSubActive]}>
+                {isActive ? cfg.sublabel : isDone ? (timestamp ?? cfg.sublabel) : cfg.sublabel}
+              </Text>
+              {isActive && timestamp && (
+                <Text style={tl.timestamp}>{timestamp}</Text>
+              )}
+            </View>
+          </View>
+        );
+      })}
     </View>
   );
 }
 
-// â”€â”€â”€ Rider Marker â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── AWB / Tracking Link ──────────────────────────────────────────────────────
 
-function RiderMarker({ bearing }: { bearing: number }) {
+function TrackingLink({ order }: { order: Order }) {
+  const awb = (order as any).awb_number;
+  const url = (order as any).tracking_url;
+  if (!awb && !url) return null;
   return (
-    <View style={styles.riderOuter}>
-      <View style={[styles.riderInner, { transform: [{ rotate: `${bearing}deg` }] }]}>
-        <Text style={styles.riderEmoji}>ðŸ›µ</Text>
-      </View>
+    <View style={s.trackLinkBox}>
+      <Text style={s.trackLinkLabel}>🚚 Rider Tracking</Text>
+      {awb && <Text style={s.trackLinkAwb}>AWB: {awb}</Text>}
+      {url && (
+        <TouchableOpacity onPress={() => Linking.openURL(url)} activeOpacity={0.75} style={s.trackLinkBtn}>
+          <Text style={s.trackLinkBtnText}>Open Tracking Link →</Text>
+        </TouchableOpacity>
+      )}
     </View>
   );
 }
 
-// â”€â”€â”€ Screen â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Star Rating ──────────────────────────────────────────────────────────────
+
+function StarRating({ value, onChange }: { value: number; onChange: (v: number) => void }) {
+  return (
+    <View style={{ flexDirection: 'row', gap: 8 }}>
+      {[1, 2, 3, 4, 5].map((n) => (
+        <TouchableOpacity key={n} onPress={() => onChange(n)} activeOpacity={0.7}>
+          <Text style={{ fontSize: 28, color: n <= value ? '#f59e0b' : '#d1d5db' }}>★</Text>
+        </TouchableOpacity>
+      ))}
+    </View>
+  );
+}
+
+// ─── Screen ───────────────────────────────────────────────────────────────────
 
 export default function OrderTrackingScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
-  const mapRef = useRef<MapView>(null);
 
   const [order, setOrder] = useState<Order | null>(null);
-  const [tracking, setTracking] = useState<TrackingData | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Animated coords for smooth rider movement
-  const riderLatAnim = useRef(new Animated.Value(0)).current;
-  const riderLngAnim = useRef(new Animated.Value(0)).current;
-  const [riderCoord, setRiderCoord] = useState<LatLng | null>(null);
-
-  // Rating state
   const [ratingStars, setRatingStars] = useState(0);
   const [ratingReview, setRatingReview] = useState('');
   const [ratingSubmitting, setRatingSubmitting] = useState(false);
   const [ratingSubmitted, setRatingSubmitted] = useState(false);
 
-  // Reorder state
   const [reordering, setReordering] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState('');
 
-  // Payment state
   const [payingOnline, setPayingOnline] = useState(false);
   const [switchingCod, setSwitchingCod] = useState(false);
+
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ─── Data fetching ─────────────────────────────────────────────────────────
+
+  const fetchOrder = useCallback(async () => {
+    try {
+      const { data } = await api.get<{ success: boolean; data: Order }>(`/me/orders/${id}`);
+      setOrder(data.data);
+    } catch {
+      /* silently handled */
+    } finally {
+      setLoading(false);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    fetchOrder();
+    pollRef.current = setInterval(fetchOrder, POLL_MS);
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, [fetchOrder]);
+
+  // Stop polling when delivered or cancelled
+  useEffect(() => {
+    if (order?.order_status === 'delivered' || order?.order_status === 'cancelled') {
+      if (pollRef.current) clearInterval(pollRef.current);
+    }
+  }, [order?.order_status]);
+
+  // ─── Handlers ──────────────────────────────────────────────────────────────
 
   async function handlePayOnline() {
     if (!order?.id) return;
     const isRazorpayModuleReady = typeof (RazorpayCheckout as { open?: unknown })?.open === 'function';
     if (isExpoGo || !isRazorpayModuleReady) {
-      Alert.alert(
-        'UPI Not Available',
-        'UPI/Paytm online payment requires a build with Razorpay native module.',
-      );
+      Alert.alert('UPI Not Available', 'UPI/online payment requires a production build with Razorpay native module.');
       return;
     }
-
     setPayingOnline(true);
     try {
       const initiateRes = await orderAPI.initiateRazorpayPayment(order.id);
       const initiateData = initiateRes.data?.data ?? initiateRes.data;
       const razorpayKey = initiateData.key ?? RAZORPAY_KEY_ID;
-
-      if (!razorpayKey) {
-        throw new Error('Razorpay key is not configured.');
-      }
+      if (!razorpayKey) throw new Error('Razorpay key is not configured.');
 
       let razorpayResponse;
       try {
@@ -240,18 +307,13 @@ export default function OrderTrackingScreen() {
           name: 'OURTH',
           description: `Order #${order.order_number ?? order.id}`,
           order_id: initiateData.razorpay_order_id,
-          prefill: {
-            contact: order.delivery_phone ?? '',
-            name: order.delivery_name ?? '',
-          },
+          prefill: { contact: (order as any).delivery_phone ?? '', name: (order as any).delivery_name ?? '' },
           theme: { color: '#1a6b5a' },
         });
       } catch (paymentErr) {
-        const paymentMessage = getPaymentErrorMessage(paymentErr);
-        if (/cancel|dismiss|back/i.test(paymentMessage)) {
-          throw new Error('Payment cancelled by user.');
-        }
-        throw new Error(paymentMessage);
+        const msg = getPaymentErrorMessage(paymentErr);
+        if (/cancel|dismiss|back/i.test(msg)) throw new Error('Payment cancelled by user.');
+        throw new Error(msg);
       }
 
       await orderAPI.verifyRazorpayPayment(order.id, {
@@ -259,24 +321,19 @@ export default function OrderTrackingScreen() {
         razorpay_payment_id: razorpayResponse.razorpay_payment_id,
         razorpay_signature: razorpayResponse.razorpay_signature,
       });
-
       Alert.alert('Payment Successful 🎉', 'Your payment has been received!');
       fetchOrder();
     } catch (err: unknown) {
       const rawMsg = err instanceof Error ? err.message : getPaymentErrorMessage(err);
       const isCancelled = rawMsg === 'Payment cancelled by user.';
-      const msg = isCancelled
-        ? 'Payment cancelled. You can try paying online again or switch to Cash on Delivery.'
-        : `Payment could not be completed. Please try again or change to Cash on Delivery.\n\nDetail: ${rawMsg}`;
-
       Alert.alert(
         isCancelled ? 'Payment Cancelled' : 'Payment Failed',
-        msg,
+        isCancelled ? 'Payment cancelled. You can try again or switch to Cash on Delivery.' : `Payment could not be completed.\n\n${rawMsg}`,
         [
           { text: 'Try Again', onPress: handlePayOnline },
           { text: 'Switch to COD', onPress: handleSwitchToCod },
           { text: 'OK', style: 'cancel' },
-        ],
+        ]
       );
     } finally {
       setPayingOnline(false);
@@ -285,111 +342,72 @@ export default function OrderTrackingScreen() {
 
   async function handleSwitchToCod() {
     if (!order?.id) return;
-    Alert.alert(
-      'Switch to Cash on Delivery',
-      'Change payment method to Cash on Delivery (COD) for this order?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Change to COD',
-          onPress: async () => {
-            setSwitchingCod(true);
-            try {
-              const res = await api.post(`/me/orders/${order.id}/switch-cod`);
-              if (res.data?.success || res.data?.status) {
-                Alert.alert('Updated', 'Payment method changed to Cash on Delivery.');
-                fetchOrder();
-              } else {
-                Alert.alert('Error', res.data?.message || 'Could not update payment method.');
-              }
-            } catch (err: any) {
-              const msg = err.response?.data?.message || 'Could not change to COD.';
-              Alert.alert('Error', msg);
-            } finally {
-              setSwitchingCod(false);
-            }
-          },
+    Alert.alert('Switch to Cash on Delivery', 'Change payment method to COD for this order?', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Change to COD',
+        onPress: async () => {
+          setSwitchingCod(true);
+          try {
+            await api.post(`/me/orders/${order.id}/switch-cod`);
+            Alert.alert('Updated', 'Payment method changed to Cash on Delivery.');
+            fetchOrder();
+          } catch {
+            Alert.alert('Error', 'Could not switch to COD. Please contact support.');
+          } finally {
+            setSwitchingCod(false);
+          }
         },
-      ],
-    );
+      },
+    ]);
   }
 
-  async function handleCancelOrderWithReason() {
-    if (!order?.id) { return; }
-    if (!cancelReason.trim()) {
-      Alert.alert('Validation', 'Please provide a reason for cancelling your order.');
-      return;
-    }
+  async function handleCancelOrder() {
+    if (!order?.id || !cancelReason.trim()) return;
     setCancelling(true);
     try {
-      const res = await api.post(`/me/orders/${order.id}/cancel`, {
-        reason: cancelReason.trim(),
-      });
-      if (res.data?.success) {
-        Alert.alert('Success', 'Order cancelled successfully.');
-        setShowCancelModal(false);
-        setCancelReason('');
-        fetchOrder();
-      } else {
-        Alert.alert('Error', res.data?.message || 'Could not cancel order.');
-      }
-    } catch (err: any) {
-      const msg = err.response?.data?.message || 'Could not cancel order.';
-      Alert.alert('Error', msg);
+      await api.post(`/me/orders/${order.id}/cancel`, { reason: cancelReason.trim() });
+      setShowCancelModal(false);
+      setCancelReason('');
+      Alert.alert('Cancelled', 'Your order has been cancelled.');
+      fetchOrder();
+    } catch (err: unknown) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Could not cancel order.');
     } finally {
       setCancelling(false);
     }
   }
 
   async function handleReorder() {
-    if (!order?.items?.length) { return; }
+    if (!order?.items?.length) return;
     setReordering(true);
     try {
       for (const item of order.items) {
         await api.post('/me/cart/items', {
           product_id: item.product_id,
+          product_pack_id: item.product_pack_id ?? undefined,
           quantity: item.quantity,
         });
       }
-      router.push('/(tabs)/cart' as never);
-    } catch {
-      Alert.alert('Error', 'Could not add items to cart. Some products may be unavailable.');
+      Alert.alert('Added to Cart', 'Items added to your cart.', [
+        { text: 'Go to Cart', onPress: () => router.push('/(tabs)/cart') },
+        { text: 'OK' },
+      ]);
+    } catch (err: unknown) {
+      Alert.alert('Error', err instanceof Error ? err.message : 'Could not reorder.');
     } finally {
       setReordering(false);
     }
   }
 
-  async function handleDownloadInvoice() {
-    if (!order?.id) { return; }
-    try {
-      const token = await SecureStore.getItemAsync('ourth_auth_token');
-      const url = `${API_BASE_URL}/me/orders/${order.id}/invoice${token ? `?token=${token}` : ''}`;
-      // The invoice endpoint uses Sanctum bearer auth; open via browser
-      // Pass the token as a query param requires a signed URL or we use the
-      // standard auth header. Since browsers can't set headers, we open the
-      // URL and rely on the session cookie or prompt the user.
-      // Simplest approach: open the API URL directly and let the server handle it.
-      const supported = await Linking.canOpenURL(url);
-      if (supported) {
-        await Linking.openURL(url);
-      } else {
-        Alert.alert('Error', 'Cannot open invoice URL on this device.');
-      }
-    } catch {
-      Alert.alert('Error', 'Could not open invoice. Please try again.');
-    }
-  }
-
   async function handleSubmitRating() {
-    if (!order?.vendor_id || ratingStars === 0) { return; }
+    if (!order?.id || ratingStars === 0) {
+      Alert.alert('Rating Required', 'Please select a star rating.');
+      return;
+    }
     setRatingSubmitting(true);
     try {
-      await api.post('/me/ratings', {
-        ratable_type: 'vendor',
-        ratable_id: order.vendor_id,
-        rating: ratingStars,
-        review: ratingReview || undefined,
-      });
+      await api.post(`/me/orders/${order.id}/rating`, { stars: ratingStars, review: ratingReview.trim() || undefined });
       setRatingSubmitted(true);
     } catch {
       Alert.alert('Error', 'Could not submit rating. Please try again.');
@@ -398,458 +416,326 @@ export default function OrderTrackingScreen() {
     }
   }
 
-  // â”€â”€ Fetch order details once â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const fetchOrder = useCallback(async () => {
-    try {
-      const { data } = await api.get<{ success: boolean; data: Order }>(`/me/orders/${id}`);
-      setOrder(data.data);
-    } catch {
-      // stay null
-    }
-  }, [id]);
-
-  // â”€â”€ Poll tracking endpoint â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const fetchTracking = useCallback(async () => {
-    try {
-      const { data } = await api.get<{ success: boolean; data: TrackingData }>(`/me/orders/${id}/tracking`);
-      const td = data.data;
-      setTracking(td);
-
-      if (td.rider) {
-        const newLat = td.rider.lat;
-        const newLng = td.rider.lng;
-
-        setRiderCoord((prev) => {
-          if (!prev) {
-            riderLatAnim.setValue(newLat);
-            riderLngAnim.setValue(newLng);
-            return { lat: newLat, lng: newLng };
-          }
-          // Animate to new position
-          Animated.timing(riderLatAnim, {
-            toValue: newLat,
-            duration: 800,
-            useNativeDriver: false,
-          }).start();
-          Animated.timing(riderLngAnim, {
-            toValue: newLng,
-            duration: 800,
-            useNativeDriver: false,
-          }).start();
-          return { lat: newLat, lng: newLng };
-        });
-
-        // Pan camera to include rider
-        if (td.pickup && mapRef.current) {
-          mapRef.current.animateToRegion(
-            regionFromPoints([
-              td.pickup,
-              { lat: newLat, lng: newLng },
-            ]),
-            600,
-          );
-        }
-      }
-    } catch {
-      // silently ignore poll errors
-    } finally {
-      setLoading(false);
-    }
-  }, [id, riderLatAnim, riderLngAnim]);
-
-  // â”€â”€ Initial load â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  useEffect(() => {
-    fetchOrder();
-    fetchTracking();
-  }, [fetchOrder, fetchTracking]);
-
-  // â”€â”€ Polling interval â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  useEffect(() => {
-    const interval = setInterval(fetchTracking, POLL_MS);
-    return () => clearInterval(interval);
-  }, [fetchTracking]);
-
-  // â”€â”€ Initial map region â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
-  const initialRegion: Region | undefined = tracking?.pickup
-    ? regionFromPoints([
-      tracking.pickup,
-      riderCoord ?? deliveryFromPickup(tracking.pickup),
-    ])
-    : undefined;
-
-  const deliveryCoord = tracking?.pickup ? deliveryFromPickup(tracking.pickup) : null;
+  // ─── Loading ────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#3d6b4f" />
-        <Text style={styles.loadingText}>Loading tracking</Text>
+      <View style={s.loadingScreen}>
+        <ActivityIndicator size="large" color="#1a6b5a" />
+        <Text style={s.loadingText}>Loading order...</Text>
+      </View>
+    );
+  }
+
+  if (!order) {
+    return (
+      <SafeAreaView style={s.loadingScreen}>
+        <Package size={48} color="#d1d5db" />
+        <Text style={s.loadingText}>Order not found.</Text>
+        <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
+          <Text style={s.backBtnText}>Go Back</Text>
+        </TouchableOpacity>
       </SafeAreaView>
     );
   }
 
-  const display = STATUS_DISPLAY[tracking?.order_status ?? order?.order_status ?? 'pending']
-    ?? { title: 'Tracking', subtitle: '' };
-  const statusForProgress = tracking?.order_status ?? order?.order_status ?? 'pending';
+  const isPendingPayment = order.payment_status === 'pending' && order.order_status === 'pending';
+  const isActive = !['delivered', 'cancelled'].includes(order.order_status);
+  const isCancellable = order.order_status === 'pending';
+  const isDelivered = order.order_status === 'delivered';
 
-  const computedSubtotal = order?.items?.length
-    ? order.items.reduce((acc, item) => acc + (parseFloat(item.unit_price ?? item.product?.discounted_price ?? item.product?.base_price ?? '0') * item.quantity), 0)
-    : 0;
-  const subtotal = parseFloat(order?.subtotal ?? '0') || computedSubtotal || parseFloat(order?.total_amount ?? '0');
-  const deliveryCharge = parseFloat(order?.delivery_charge ?? '0');
-  const taxAmount = parseFloat(order?.tax_amount ?? '0');
-  const discountAmount = parseFloat(order?.discount_amount ?? '0');
-  const rawTotal = parseFloat(order?.total_amount ?? '0');
-  // If order was saved with old delivery_charge included in total_amount, subtract deliveryCharge so Grand Total equals ₹201
-  const grandTotal = (deliveryCharge > 0 && rawTotal === subtotal + deliveryCharge)
-    ? subtotal + taxAmount - discountAmount
-    : rawTotal;
+  // ─── Render ─────────────────────────────────────────────────────────────────
 
   return (
-    <SafeAreaView style={{ flex: 1, backgroundColor: '#f0f5f2' }}>
-      {/* Header bar */}
-      <View style={styles.topBarHeader}>
-        <TouchableOpacity style={styles.backCircle} onPress={() => router.back()}>
-          <ChevronLeft size={20} color="#374151" />
+    <SafeAreaView style={s.screen}>
+      {/* Header */}
+      <View style={s.header}>
+        <TouchableOpacity style={s.headerBack} onPress={() => router.back()} activeOpacity={0.8}>
+          <ChevronLeft size={22} color="#1f2937" />
         </TouchableOpacity>
-        <Text style={styles.topBarHeaderTitle}>Order Details</Text>
-        <View style={{ width: 38 }} />
+        <View style={{ flex: 1 }}>
+          <Text style={s.headerTitle}>Order Details</Text>
+          <Text style={s.headerSub} numberOfLines={1}>{order.order_number || `#${order.id}`}</Text>
+        </View>
+        {isActive && (
+          <View style={s.livePill}>
+            <View style={s.liveDot} />
+            <Text style={s.liveText}>LIVE</Text>
+          </View>
+        )}
       </View>
 
-      {/* â”€â”€ Bottom sheet â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€ */}
       <ScrollView
-        style={styles.sheet}
-        contentContainerStyle={styles.sheetContent}
         showsVerticalScrollIndicator={false}
+        contentContainerStyle={s.scrollContent}
       >
-
-        {/* Status card */}
-        <View style={styles.card}>
-          <View style={styles.statusRow}>
-            <View style={{ flex: 1 }}>
-              <Text style={styles.statusTitle}>{display.title}</Text>
-              <Text style={styles.statusSubtitle}>{display.subtitle}</Text>
-            </View>
-          </View>
-
-          <View style={styles.metaGrid}>
-            <View>
-              <Text style={styles.metaLabel}>Order Date</Text>
-              <Text style={styles.metaValue}>
-                {order ? ordinalDate(order.created_at) : 'â€”'}
+        {/* Status Hero */}
+        <View style={s.heroBox}>
+          <LinearGradient
+            colors={
+              order.order_status === 'delivered'
+                ? ['#1a4731', '#2d6a4f']
+                : order.order_status === 'cancelled'
+                  ? ['#7f1d1d', '#991b1b']
+                  : ['#1a3a6b', '#1a6b5a']
+            }
+            start={{ x: 0, y: 0 }}
+            end={{ x: 1, y: 1 }}
+            style={StyleSheet.absoluteFill}
+          />
+          <Text style={s.heroEmoji}>
+            {order.order_status === 'delivered' ? '🎉'
+              : order.order_status === 'cancelled' ? '❌'
+              : order.order_status === 'out_for_delivery' ? '🛵'
+              : order.order_status === 'processing' ? '🎁'
+              : order.order_status === 'confirmed' ? '✅'
+              : '📦'}
+          </Text>
+          <Text style={s.heroTitle}>
+            {order.order_status === 'delivered' ? 'Delivered!'
+              : order.order_status === 'cancelled' ? 'Order Cancelled'
+              : order.order_status === 'out_for_delivery' ? 'On the Way!'
+              : order.order_status === 'processing' ? 'Packed & Ready'
+              : order.order_status === 'confirmed' ? 'Being Prepared'
+              : 'Order Placed'}
+          </Text>
+          <View style={s.heroMeta}>
+            <Text style={s.heroMetaText}>📅 {ordinalDate(order.created_at)}</Text>
+            <View style={s.heroMetaDivider} />
+            <View style={[
+              s.heroBadge,
+              order.payment_status === 'paid' ? s.heroBadgePaid : s.heroBadgePending,
+            ]}>
+              <Text style={[
+                s.heroBadgeText,
+                order.payment_status === 'paid' ? s.heroBadgeTextPaid : s.heroBadgeTextPending,
+              ]}>
+                {order.payment_status === 'paid' ? '💳 Paid' : '⏳ Payment Pending'}
               </Text>
             </View>
-            <View style={{ alignItems: 'flex-end' }}>
-              <Text style={styles.metaLabel}>Order ID</Text>
-              <Text style={styles.metaValue} numberOfLines={1}>
-                {order?.order_number ?? tracking?.order_number ?? `#${id}`}
-              </Text>
-            </View>
           </View>
-
-          <StatusProgress status={statusForProgress} />
         </View>
 
-        {/* Tracking card */}
-        {order?.tracking_url && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Delivery Tracking</Text>
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-              <View>
-                <Text style={{ fontSize: 13, color: '#6b7280', fontWeight: '500' }}>Delivery Partner</Text>
-                <Text style={{ fontSize: 15, fontWeight: '700', color: '#1f2937' }}>Shadowfax</Text>
-              </View>
-              <View style={{ alignItems: 'flex-end' }}>
-                <Text style={{ fontSize: 13, color: '#6b7280', fontWeight: '500' }}>AWB Number</Text>
-                <Text style={{ fontSize: 14, fontWeight: '700', color: '#1f2937' }}>{order.awb_number}</Text>
-              </View>
-            </View>
-            <TouchableOpacity 
-              style={{ backgroundColor: '#3d6b4f', borderRadius: 12, paddingVertical: 12, alignItems: 'center' }}
-              onPress={() => Linking.openURL(order.tracking_url as string)}
-            >
-              <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>Track Package</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Items card */}
-        {order?.items && order.items.length > 0 && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>
-              {order.items.length} Item{order.items.length !== 1 ? 's' : ''} in this order
-            </Text>
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.itemsScroll}
-            >
-              {order.items.map((item) => (
-                <View key={item.id} style={styles.itemThumb}>
-                  {item.product?.primary_image_url ? (
-                    <Image
-                      source={{ uri: fixAssetUrl(item.product.primary_image_url) }}
-                      style={styles.itemImage}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={[styles.itemImage, styles.itemImageFallback]}>
-                      <Package size={24} color="#9ca3af" />
-                    </View>
-                  )}
-                  <Text style={styles.itemName} numberOfLines={1}>{item.product_name}</Text>
-                  <Text style={styles.itemQty}>no. of items: {item.quantity}</Text>
-                </View>
-              ))}
-            </ScrollView>
-          </View>
-        )}
-
-        {/* Payment Details card */}
-        {order && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Payment Details</Text>
-            <View style={styles.billingRow}>
-              <Text style={styles.billingLabel}>Payment Method</Text>
-              <Text style={[styles.billingValue, { fontWeight: '700', color: '#1a6b5a' }]}>
-                {order.payment_method === 'cod' ? 'Cash on Delivery' : 'Online Payment (UPI / Razorpay)'}
-              </Text>
-            </View>
-            <View style={styles.billingRow}>
-              <Text style={styles.billingLabel}>Payment Status</Text>
-              <Text style={[
-                styles.billingValue,
-                { fontWeight: '700' },
-                order.payment_status === 'paid' ? { color: '#16a34a' } : order.payment_status === 'failed' ? { color: '#dc2626' } : { color: '#d97706' }
-              ]}>
-                {order.payment_status ? order.payment_status.toUpperCase() : 'PENDING'}
-              </Text>
-            </View>
-            {order.payment_id && (
-              <View style={styles.billingRow}>
-                <Text style={styles.billingLabel}>Transaction ID</Text>
-                <Text style={[styles.billingValue, { fontSize: 12 }]}>{order.payment_id}</Text>
-              </View>
-            )}
-
-            {/* Pending Payment Actions: Pay Online or Switch to COD */}
-            {order.payment_status !== 'paid' && order.order_status !== 'cancelled' && (
-              <View style={{ marginTop: 14, gap: 10 }}>
-                <TouchableOpacity
-                  style={{
-                    backgroundColor: '#1a6b5a',
-                    borderRadius: 12,
-                    paddingVertical: 12,
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                  }}
-                  onPress={handlePayOnline}
-                  disabled={payingOnline}
-                >
-                  {payingOnline ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={{ color: '#fff', fontWeight: '700', fontSize: 14 }}>
-                      💳 Pay Online (UPI / Paytm / Cards)
-                    </Text>
-                  )}
-                </TouchableOpacity>
-
-                {order.payment_method !== 'cod' && (
-                  <TouchableOpacity
-                    style={{
-                      backgroundColor: '#f3f4f6',
-                      borderWidth: 1.5,
-                      borderColor: '#d1d5db',
-                      borderRadius: 12,
-                      paddingVertical: 11,
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                    }}
-                    onPress={handleSwitchToCod}
-                    disabled={switchingCod}
-                  >
-                    {switchingCod ? (
-                      <ActivityIndicator size="small" color="#374151" />
-                    ) : (
-                      <Text style={{ color: '#374151', fontWeight: '700', fontSize: 14 }}>
-                        💵 Change to Cash on Delivery (COD)
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                )}
-              </View>
-            )}
-          </View>
-        )}
-
-        {/* Billing card */}
-        {order && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Billing Details</Text>
-
-            <View style={styles.billingRow}>
-              <Text style={styles.billingLabel}>Items Total</Text>
-              <Text style={styles.billingValue}>₹{subtotal.toFixed(0)}</Text>
-            </View>
-            {taxAmount > 0 && (
-              <View style={styles.billingRow}>
-                <Text style={styles.billingLabel}>Tax / GST</Text>
-                <Text style={styles.billingValue}>₹{taxAmount.toFixed(0)}</Text>
-              </View>
-            )}
-            <View style={styles.billingRow}>
-              <Text style={styles.billingLabel}>Delivery Charge</Text>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                <Text style={[styles.billingValue, { textDecorationLine: 'line-through', color: '#9ca3af' }]}>
-                  ₹39
-                </Text>
-                <Text style={[styles.billingValue, { color: '#16a34a', fontWeight: '700' }]}>FREE</Text>
-              </View>
-            </View>
-            {discountAmount > 0 && (
-              <View style={styles.billingRow}>
-                <Text style={styles.billingLabel}>Discount / Coupon</Text>
-                <Text style={[styles.billingValue, { color: '#16a34a' }]}>
-                  -₹{discountAmount.toFixed(0)}
-                </Text>
-              </View>
-            )}
-            <View style={styles.divider} />
-            <View style={styles.billingRow}>
-              <Text style={styles.grandTotalLabel}>Grand Total</Text>
-              <Text style={styles.grandTotalValue}>₹{grandTotal.toFixed(0)}</Text>
-            </View>
-          </View>
-        )}
-
-        {/* Rating card — only for delivered orders */}
-        {order?.order_status === 'delivered' && (
-          <View style={styles.card}>
-            {ratingSubmitted ? (
-              <View style={styles.ratingDoneWrap}>
-                <Text style={styles.ratingDoneEmoji}>⭐</Text>
-                <Text style={styles.ratingDoneTitle}>Thanks for your feedback!</Text>
-                <Text style={styles.ratingDoneSub}>Your rating has been submitted.</Text>
-              </View>
-            ) : (
-              <>
-                <Text style={styles.sectionTitle}>Rate your experience</Text>
-                <Text style={styles.ratingSubtitle}>
-                  How was your order from {order.vendor?.business_name ?? 'the vendor'}?
-                </Text>
-                <View style={styles.starsRow}>
-                  {[1, 2, 3, 4, 5].map((star) => (
-                    <TouchableOpacity
-                      key={star}
-                      onPress={() => setRatingStars(star)}
-                      hitSlop={{ top: 8, bottom: 8, left: 4, right: 4 }}
-                    >
-                      <Text style={[styles.starIcon, star <= ratingStars && styles.starIconActive]}>
-                        ★
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-                <TextInput
-                  style={styles.ratingInput}
-                  placeholder="Leave a review (optional)..."
-                  placeholderTextColor="#9ca3af"
-                  value={ratingReview}
-                  onChangeText={setRatingReview}
-                  multiline
-                  numberOfLines={3}
-                />
-                <TouchableOpacity
-                  style={[styles.ratingBtn, ratingStars === 0 && styles.ratingBtnDisabled]}
-                  onPress={handleSubmitRating}
-                  disabled={ratingStars === 0 || ratingSubmitting}
-                >
-                  {ratingSubmitting
-                    ? <ActivityIndicator size="small" color="#fff" />
-                    : <Text style={styles.ratingBtnText}>Submit Rating</Text>
-                  }
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        )}
-
-        {/* Reorder + Invoice buttons — only for delivered orders */}
-        {order?.order_status === 'delivered' && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Order Actions</Text>
-            <TouchableOpacity
-              style={styles.reorderBtn}
-              onPress={handleReorder}
-              disabled={reordering}
-            >
-              {reordering
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={styles.reorderBtnText}>🔄  Reorder</Text>
-              }
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.invoiceBtn}
-              onPress={handleDownloadInvoice}
-            >
-              <Text style={styles.invoiceBtnText}>📄  Download Invoice</Text>
-            </TouchableOpacity>
-          </View>
-        )}
-
-        {/* Cancel Order action — for active/pending/confirmed orders */}
-        {(order?.order_status === 'pending' || order?.order_status === 'pending_payment' || order?.order_status === 'confirmed') && (
-          <View style={styles.card}>
-            <Text style={styles.sectionTitle}>Order Actions</Text>
-            <TouchableOpacity
-              style={styles.cancelBtn}
-              onPress={() => setShowCancelModal(true)}
-              disabled={cancelling}
-            >
-              {cancelling
-                ? <ActivityIndicator size="small" color="#fff" />
-                : <Text style={styles.cancelBtnText}>❌  Cancel Order</Text>
-              }
-            </TouchableOpacity>
-          </View>
-        )}
-
-        <Text style={styles.pollNote}>Updates every 5 seconds</Text>
-
-      </ScrollView>
-
-      {/* Cancel Reason Modal */}
-      {showCancelModal && (
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalSheet}>
-            <Text style={styles.modalTitle}>Cancel Order</Text>
-            <Text style={styles.modalSub}>Please tell us why you are cancelling this order so we can improve our process.</Text>
-            <Text style={styles.modalLabel}>Reason for Cancellation *</Text>
-            <TextInput
-              style={styles.modalInput}
-              placeholder="e.g. Placed order by mistake, changed mind, incorrect address..."
-              placeholderTextColor="#9ca3af"
-              value={cancelReason}
-              onChangeText={setCancelReason}
-              multiline
-              numberOfLines={3}
-            />
-            <View style={styles.modalBtnRow}>
+        {/* Pending Payment CTA */}
+        {isPendingPayment && (
+          <View style={s.payAlertBox}>
+            <Text style={s.payAlertTitle}>⚠️ Complete Payment</Text>
+            <Text style={s.payAlertSub}>Your order is held until payment is confirmed.</Text>
+            <View style={s.payBtnRow}>
               <TouchableOpacity
-                style={styles.modalBtnCancel}
-                onPress={() => { setShowCancelModal(false); setCancelReason(''); }}
+                style={[s.payBtnPrimary, payingOnline && s.btnDisabled]}
+                onPress={handlePayOnline}
+                disabled={payingOnline}
+                activeOpacity={0.8}
               >
-                <Text style={styles.modalBtnCancelText}>Keep Order</Text>
+                {payingOnline ? (
+                  <ActivityIndicator color="#fff" size="small" />
+                ) : (
+                  <Text style={s.payBtnPrimaryText}>Pay Online</Text>
+                )}
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.modalBtnConfirm, cancelling && { opacity: 0.6 }]}
-                onPress={handleCancelOrderWithReason}
-                disabled={cancelling}
+                style={[s.payBtnSecondary, switchingCod && s.btnDisabled]}
+                onPress={handleSwitchToCod}
+                disabled={switchingCod}
+                activeOpacity={0.8}
+              >
+                {switchingCod ? (
+                  <ActivityIndicator color="#1a6b5a" size="small" />
+                ) : (
+                  <Text style={s.payBtnSecondaryText}>Switch to COD</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        )}
+
+        {/* Timeline */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Order Progress</Text>
+          <OrderTimeline order={order} />
+        </View>
+
+        {/* AWB / Tracking Link */}
+        <TrackingLink order={order} />
+
+        {/* Order Items */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Items Ordered</Text>
+          <View style={s.itemsList}>
+            {(order.items ?? []).map((item) => (
+              <View key={item.id} style={s.itemRow}>
+                {item.product?.primary_image_url ? (
+                  <Image
+                    source={{ uri: fixAssetUrl(item.product.primary_image_url) }}
+                    style={s.itemImg}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <View style={[s.itemImg, s.itemImgPlaceholder]}>
+                    <Package size={20} color="#9ca3af" />
+                  </View>
+                )}
+                <View style={s.itemInfo}>
+                  <Text style={s.itemName} numberOfLines={2}>{item.product?.name ?? 'Product'}</Text>
+                  {item.productPack?.name && (
+                    <Text style={s.itemPack}>{item.productPack.name}</Text>
+                  )}
+                  <Text style={s.itemQty}>Qty: {item.quantity}</Text>
+                </View>
+                <Text style={s.itemPrice}>₹{Number(item.total_price).toLocaleString('en-IN')}</Text>
+              </View>
+            ))}
+          </View>
+        </View>
+
+        {/* Price Breakdown */}
+        <View style={s.section}>
+          <Text style={s.sectionTitle}>Price Summary</Text>
+          <View style={s.priceBox}>
+            {order.subtotal && (
+              <View style={s.priceRow}>
+                <Text style={s.priceLabel}>Subtotal</Text>
+                <Text style={s.priceValue}>₹{Number(order.subtotal).toLocaleString('en-IN')}</Text>
+              </View>
+            )}
+            {order.discount_amount && Number(order.discount_amount) > 0 && (
+              <View style={s.priceRow}>
+                <Text style={[s.priceLabel, { color: '#16a34a' }]}>Discount</Text>
+                <Text style={[s.priceValue, { color: '#16a34a' }]}>- ₹{Number(order.discount_amount).toLocaleString('en-IN')}</Text>
+              </View>
+            )}
+            {order.delivery_charge && (
+              <View style={s.priceRow}>
+                <Text style={s.priceLabel}>Delivery</Text>
+                <Text style={s.priceValue}>
+                  {Number(order.delivery_charge) === 0 ? 'FREE' : `₹${Number(order.delivery_charge).toLocaleString('en-IN')}`}
+                </Text>
+              </View>
+            )}
+            <View style={[s.priceRow, s.priceTotalRow]}>
+              <Text style={s.priceTotalLabel}>Total Paid</Text>
+              <Text style={s.priceTotalValue}>₹{Number(order.total_amount).toLocaleString('en-IN')}</Text>
+            </View>
+          </View>
+        </View>
+
+        {/* Delivery Address */}
+        {(order as any).delivery_address_line1 && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Delivery Address</Text>
+            <View style={s.addressBox}>
+              <MapPin size={16} color="#6b7280" />
+              <Text style={s.addressText}>
+                {(order as any).delivery_address_line1}
+                {(order as any).delivery_address_line2 ? `, ${(order as any).delivery_address_line2}` : ''}
+                {(order as any).delivery_city ? `, ${(order as any).delivery_city}` : ''}
+                {(order as any).delivery_state ? `, ${(order as any).delivery_state}` : ''}
+                {(order as any).delivery_postal_code ? ` - ${(order as any).delivery_postal_code}` : ''}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {/* Rating */}
+        {isDelivered && (
+          <View style={s.section}>
+            <Text style={s.sectionTitle}>Rate Your Order</Text>
+            {ratingSubmitted ? (
+              <View style={s.ratingDoneBox}>
+                <Text style={s.ratingDoneEmoji}>🌟</Text>
+                <Text style={s.ratingDoneText}>Thank you for your feedback!</Text>
+              </View>
+            ) : (
+              <View style={s.ratingBox}>
+                <StarRating value={ratingStars} onChange={setRatingStars} />
+                <TextInput
+                  style={s.ratingInput}
+                  value={ratingReview}
+                  onChangeText={setRatingReview}
+                  placeholder="Share your experience (optional)"
+                  placeholderTextColor="#9ca3af"
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                />
+                <TouchableOpacity
+                  style={[s.ratingSubmitBtn, ratingSubmitting && s.btnDisabled]}
+                  onPress={handleSubmitRating}
+                  disabled={ratingSubmitting}
+                  activeOpacity={0.8}
+                >
+                  {ratingSubmitting
+                    ? <ActivityIndicator color="#fff" size="small" />
+                    : <Text style={s.ratingSubmitText}>Submit Rating</Text>
+                  }
+                </TouchableOpacity>
+              </View>
+            )}
+          </View>
+        )}
+
+        {/* Action Buttons */}
+        <View style={s.actionRow}>
+          <TouchableOpacity
+            style={[s.actionBtnReorder, reordering && s.btnDisabled]}
+            onPress={handleReorder}
+            disabled={reordering}
+            activeOpacity={0.8}
+          >
+            {reordering
+              ? <ActivityIndicator color="#1a6b5a" size="small" />
+              : <Text style={s.actionBtnReorderText}>🔄 Order Again</Text>
+            }
+          </TouchableOpacity>
+          {isCancellable && (
+            <TouchableOpacity
+              style={s.actionBtnCancel}
+              onPress={() => setShowCancelModal(true)}
+              activeOpacity={0.8}
+            >
+              <Text style={s.actionBtnCancelText}>Cancel Order</Text>
+            </TouchableOpacity>
+          )}
+        </View>
+
+        <View style={{ height: 40 }} />
+      </ScrollView>
+
+      {/* Cancel Modal */}
+      {showCancelModal && (
+        <View style={s.modalOverlay}>
+          <View style={s.modalSheet}>
+            <Text style={s.modalTitle}>Cancel Order</Text>
+            <Text style={s.modalSub}>Please tell us why you want to cancel.</Text>
+            <Text style={s.modalLabel}>Reason</Text>
+            <TextInput
+              style={s.modalInput}
+              value={cancelReason}
+              onChangeText={setCancelReason}
+              placeholder="e.g. Changed my mind, wrong item..."
+              placeholderTextColor="#9ca3af"
+              multiline
+              numberOfLines={4}
+              textAlignVertical="top"
+            />
+            <View style={s.modalBtnRow}>
+              <TouchableOpacity
+                style={s.modalBtnKeep}
+                onPress={() => { setShowCancelModal(false); setCancelReason(''); }}
+                activeOpacity={0.8}
+              >
+                <Text style={s.modalBtnKeepText}>Keep Order</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[s.modalBtnConfirm, (!cancelReason.trim() || cancelling) && s.btnDisabled]}
+                onPress={handleCancelOrder}
+                disabled={!cancelReason.trim() || cancelling}
+                activeOpacity={0.8}
               >
                 {cancelling
-                  ? <ActivityIndicator size="small" color="#fff" />
-                  : <Text style={styles.modalBtnConfirmText}>Cancel Order</Text>
+                  ? <ActivityIndicator color="#fff" size="small" />
+                  : <Text style={s.modalBtnConfirmText}>Cancel Order</Text>
                 }
               </TouchableOpacity>
             </View>
@@ -860,170 +746,247 @@ export default function OrderTrackingScreen() {
   );
 }
 
-// â”€â”€â”€ Styles â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
+// ─── Timeline Styles ──────────────────────────────────────────────────────────
 
-const styles = StyleSheet.create({
-  loadingContainer: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f0f5f2', gap: 12 },
-  loadingText: { color: '#6b7280', fontSize: 14 },
+const tl = StyleSheet.create({
+  wrap: { paddingTop: 4 },
 
-  topBarHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
+  row: { flexDirection: 'row', gap: 16 },
+
+  dotCol: { alignItems: 'center', width: 36 },
+
+  dotDone: {
+    width: 36, height: 36, borderRadius: 18,
+    backgroundColor: '#1a6b5a',
+    alignItems: 'center', justifyContent: 'center',
+  },
+  dotActive: {
+    width: 42, height: 42, borderRadius: 21,
     backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderColor: '#e5e7eb',
+    borderWidth: 3, borderColor: '#1a6b5a',
+    alignItems: 'center', justifyContent: 'center',
+    shadowColor: '#1a6b5a', shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.5, shadowRadius: 10, elevation: 8,
   },
-  topBarHeaderTitle: {
-    fontSize: 18,
-    fontWeight: '700',
-    color: '#1f2937',
+  dotPending: {
+    width: 28, height: 28, borderRadius: 14,
+    backgroundColor: '#f3f4f6',
+    borderWidth: 2, borderColor: '#e5e7eb',
+    margin: 4,
   },
 
-  // Map
-  mapWrapper: { height: MAP_HEIGHT, position: 'relative' },
-  map: { flex: 1 },
-  mapPlaceholder: { alignItems: 'center', justifyContent: 'center', backgroundColor: '#d1fae5', gap: 8 },
-  mapPlaceholderText: { color: '#3d6b4f', textAlign: 'center', fontSize: 13 },
-
-  // Header overlay
-  headerOverlay: {
-    position: 'absolute',
-    top: Platform.OS === 'android' ? 12 : 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+  line: {
+    flex: 1, width: 2,
+    backgroundColor: '#e5e7eb',
+    minHeight: 28, marginVertical: 4,
   },
-  backCircle: { width: 38, height: 38, borderRadius: 19, backgroundColor: 'rgba(255,255,255,0.92)', alignItems: 'center', justifyContent: 'center', elevation: 3, shadowColor: '#000', shadowOpacity: 0.12, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
-  headerTitle: { backgroundColor: 'rgba(255,255,255,0.88)', paddingHorizontal: 16, paddingVertical: 6, borderRadius: 20, elevation: 3, shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
-  headerTitleText: { fontSize: 15, fontWeight: '700', color: '#1f2937' },
+  lineDone: { backgroundColor: '#1a6b5a' },
 
-  // ETA & live chips
-  etaChip: {
-    position: 'absolute',
-    bottom: 14,
-    alignSelf: 'center',
+  content: { flex: 1, paddingBottom: 24 },
+  stepLabel: { fontSize: 14, fontWeight: '600', color: '#9ca3af', marginTop: 6 },
+  stepLabelDone: { color: '#374151' },
+  stepLabelActive: { fontSize: 16, fontWeight: '700', color: '#1a6b5a' },
+  stepSub: { fontSize: 12, color: '#d1d5db', marginTop: 2 },
+  stepSubActive: { color: '#6b7280' },
+  timestamp: { fontSize: 11, color: '#9ca3af', marginTop: 4 },
+
+  cancelledBox: {
+    alignItems: 'center', paddingVertical: 24,
+    backgroundColor: '#fef2f2', borderRadius: 14,
+    borderWidth: 1.5, borderColor: '#fca5a5',
+  },
+  cancelledEmoji: { fontSize: 40, marginBottom: 8 },
+  cancelledTitle: { fontSize: 18, fontWeight: '700', color: '#dc2626' },
+  cancelledReason: { fontSize: 13, color: '#ef4444', marginTop: 6, textAlign: 'center', paddingHorizontal: 16 },
+  cancelledDate: { fontSize: 12, color: '#9ca3af', marginTop: 4 },
+});
+
+// ─── Screen Styles ────────────────────────────────────────────────────────────
+
+const s = StyleSheet.create({
+  screen: { flex: 1, backgroundColor: '#f9fafb' },
+
+  loadingScreen: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#f9fafb', gap: 12 },
+  loadingText: { fontSize: 15, color: '#6b7280' },
+  backBtn: { marginTop: 12, paddingHorizontal: 24, paddingVertical: 10, backgroundColor: '#1a6b5a', borderRadius: 10 },
+  backBtnText: { color: '#fff', fontWeight: '600', fontSize: 14 },
+
+  // Header
+  header: {
+    flexDirection: 'row', alignItems: 'center', gap: 12,
+    paddingHorizontal: 16, paddingTop: 8, paddingBottom: 12,
     backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 7,
-    borderRadius: 20,
-    elevation: 4,
-    shadowColor: '#000',
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
+    borderBottomWidth: 1, borderBottomColor: '#f3f4f6',
   },
-  etaText: { fontSize: 13, fontWeight: '600', color: '#1f2937' },
-
-  liveBadge: {
-    position: 'absolute',
-    top: Platform.OS === 'android' ? 60 : 48,
-    right: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-    backgroundColor: '#dc2626',
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 12,
-    elevation: 4,
+  headerBack: {
+    width: 38, height: 38, borderRadius: 19,
+    backgroundColor: '#f3f4f6', alignItems: 'center', justifyContent: 'center',
   },
-  liveDot: { width: 6, height: 6, borderRadius: 3, backgroundColor: '#fff' },
-  liveText: { fontSize: 10, fontWeight: '800', color: '#fff', letterSpacing: 1 },
-
-  // Markers
-  pickupMarker: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#3d6b4f', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff', elevation: 4 },
-  deliveryMarker: { width: 32, height: 32, borderRadius: 16, backgroundColor: '#2563eb', alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#fff', elevation: 4 },
-  riderOuter: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.95)', alignItems: 'center', justifyContent: 'center', elevation: 5, shadowColor: '#000', shadowOpacity: 0.2, shadowRadius: 4, shadowOffset: { width: 0, height: 2 } },
-  riderInner: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  riderEmoji: { fontSize: 24 },
-
-  // Sheet
-  sheet: { flex: 1, backgroundColor: '#f0f5f2' },
-  sheetContent: { padding: 16, gap: 12, paddingBottom: 32 },
-
-  // Card
-  card: {
-    backgroundColor: '#fff',
-    borderRadius: 16,
-    padding: 16,
-    elevation: 2,
-    shadowColor: '#000',
-    shadowOpacity: 0.06,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 2 },
+  headerTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
+  headerSub: { fontSize: 12, color: '#6b7280', marginTop: 1 },
+  livePill: {
+    flexDirection: 'row', alignItems: 'center', gap: 5,
+    backgroundColor: '#dcfce7', paddingHorizontal: 10, paddingVertical: 4,
+    borderRadius: 20, borderWidth: 1, borderColor: '#86efac',
   },
+  liveDot: { width: 7, height: 7, borderRadius: 4, backgroundColor: '#16a34a' },
+  liveText: { fontSize: 11, fontWeight: '800', color: '#15803d', letterSpacing: 1 },
 
-  // Status
-  statusRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 14 },
-  statusTitle: { fontSize: 17, fontWeight: '700', color: '#1f2937' },
-  statusSubtitle: { fontSize: 13, color: '#6b7280', marginTop: 2 },
+  scrollContent: { paddingBottom: 32 },
 
-  metaGrid: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 16 },
-  metaLabel: { fontSize: 12, color: '#9ca3af', marginBottom: 2 },
-  metaValue: { fontSize: 13, fontWeight: '600', color: '#1f2937', maxWidth: 160 },
-
-  // Progress
-  progressWrap: { gap: 6 },
-  progressTrack: { height: 6, backgroundColor: '#e5e7eb', borderRadius: 3, overflow: 'hidden', marginBottom: 4 },
-  progressFill: { height: '100%', backgroundColor: '#3d6b4f', borderRadius: 3 },
-  stepsRow: { flexDirection: 'row', justifyContent: 'space-between' },
-  stepItem: { alignItems: 'center', flex: 1 },
-  stepDot: {
-    width: 10, height: 10, borderRadius: 5,
-    backgroundColor: '#e5e7eb', borderWidth: 1.5, borderColor: '#d1d5db',
-    alignItems: 'center', justifyContent: 'center', marginBottom: 4,
+  // Hero
+  heroBox: {
+    margin: 16, borderRadius: 18, padding: 24,
+    alignItems: 'center', overflow: 'hidden',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15, shadowRadius: 12, elevation: 8,
   },
-  stepDotDone: { backgroundColor: '#3d6b4f', borderColor: '#3d6b4f' },
-  stepDotActive: { backgroundColor: '#fff', borderColor: '#3d6b4f', borderWidth: 2.5 },
-  stepDotInner: { width: 4, height: 4, borderRadius: 2, backgroundColor: '#fff' },
-  stepLabel: { fontSize: 9, color: '#9ca3af', textAlign: 'center', lineHeight: 12 },
-  stepLabelDone: { color: '#374151', fontWeight: '600' },
+  heroEmoji: { fontSize: 48, marginBottom: 10 },
+  heroTitle: { fontSize: 22, fontWeight: '800', color: '#fff', marginBottom: 12 },
+  heroMeta: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  heroMetaText: { fontSize: 13, color: 'rgba(255,255,255,0.85)' },
+  heroMetaDivider: { width: 1, height: 16, backgroundColor: 'rgba(255,255,255,0.3)' },
+  heroBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20 },
+  heroBadgePaid: { backgroundColor: 'rgba(22,163,74,0.25)' },
+  heroBadgePending: { backgroundColor: 'rgba(245,158,11,0.25)' },
+  heroBadgeText: { fontSize: 12, fontWeight: '700' },
+  heroBadgeTextPaid: { color: '#86efac' },
+  heroBadgeTextPending: { color: '#fde68a' },
+
+  // Pay alert
+  payAlertBox: {
+    marginHorizontal: 16, marginBottom: 8,
+    backgroundColor: '#fffbeb', borderRadius: 14,
+    borderWidth: 1.5, borderColor: '#fde68a', padding: 16,
+  },
+  payAlertTitle: { fontSize: 15, fontWeight: '700', color: '#92400e', marginBottom: 4 },
+  payAlertSub: { fontSize: 13, color: '#b45309', marginBottom: 12 },
+  payBtnRow: { flexDirection: 'row', gap: 10 },
+  payBtnPrimary: {
+    flex: 1, paddingVertical: 11, borderRadius: 10,
+    backgroundColor: '#1a6b5a', alignItems: 'center',
+  },
+  payBtnPrimaryText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  payBtnSecondary: {
+    flex: 1, paddingVertical: 11, borderRadius: 10,
+    borderWidth: 1.5, borderColor: '#1a6b5a', alignItems: 'center',
+  },
+  payBtnSecondaryText: { color: '#1a6b5a', fontWeight: '700', fontSize: 14 },
+
+  // Section
+  section: {
+    marginHorizontal: 16, marginTop: 16,
+    backgroundColor: '#fff', borderRadius: 14,
+    padding: 16, borderWidth: 1, borderColor: '#f3f4f6',
+    shadowColor: '#000', shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.04, shadowRadius: 4, elevation: 2,
+  },
+  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#111827', marginBottom: 14 },
+
+  // AWB / tracking link
+  trackLinkBox: {
+    marginHorizontal: 16, marginTop: 16,
+    backgroundColor: '#eff6ff', borderRadius: 14,
+    borderWidth: 1, borderColor: '#bfdbfe', padding: 14,
+  },
+  trackLinkLabel: { fontSize: 14, fontWeight: '700', color: '#1d4ed8', marginBottom: 4 },
+  trackLinkAwb: { fontSize: 12, color: '#3b82f6', fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace', marginBottom: 8 },
+  trackLinkBtn: {
+    backgroundColor: '#2563eb', paddingVertical: 9, paddingHorizontal: 16,
+    borderRadius: 8, alignSelf: 'flex-start',
+  },
+  trackLinkBtnText: { color: '#fff', fontSize: 13, fontWeight: '700' },
 
   // Items
-  sectionTitle: { fontSize: 15, fontWeight: '700', color: '#1f2937', marginBottom: 12 },
-  itemsScroll: { gap: 10, paddingRight: 4 },
-  itemThumb: { width: 80, alignItems: 'center', gap: 4 },
-  itemImage: { width: 72, height: 72, borderRadius: 12, backgroundColor: '#f3f4f6' },
-  itemImageFallback: { alignItems: 'center', justifyContent: 'center' },
-  itemName: { fontSize: 10, color: '#374151', fontWeight: '600', textAlign: 'center' },
-  itemQty: { fontSize: 9, color: '#9ca3af', textAlign: 'center' },
+  itemsList: { gap: 12 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  itemImg: {
+    width: 58, height: 58, borderRadius: 10,
+    backgroundColor: '#f9fafb', overflow: 'hidden',
+  },
+  itemImgPlaceholder: { alignItems: 'center', justifyContent: 'center' },
+  itemInfo: { flex: 1 },
+  itemName: { fontSize: 13, fontWeight: '600', color: '#111827' },
+  itemPack: { fontSize: 11, color: '#6b7280', marginTop: 2 },
+  itemQty: { fontSize: 12, color: '#9ca3af', marginTop: 2 },
+  itemPrice: { fontSize: 14, fontWeight: '700', color: '#111827' },
 
-  // Billing
-  billingRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 6 },
-  billingLabel: { fontSize: 14, color: '#374151' },
-  billingValue: { fontSize: 14, color: '#374151', fontWeight: '500' },
-  divider: { height: 1, backgroundColor: '#e5e7eb', marginVertical: 6 },
-  grandTotalLabel: { fontSize: 16, fontWeight: '700', color: '#1f2937' },
-  grandTotalValue: { fontSize: 16, fontWeight: '700', color: '#1f2937' },
+  // Price box
+  priceBox: { gap: 8 },
+  priceRow: { flexDirection: 'row', justifyContent: 'space-between' },
+  priceLabel: { fontSize: 13, color: '#6b7280' },
+  priceValue: { fontSize: 13, color: '#374151', fontWeight: '600' },
+  priceTotalRow: {
+    marginTop: 8, paddingTop: 10,
+    borderTopWidth: 1.5, borderTopColor: '#f3f4f6',
+  },
+  priceTotalLabel: { fontSize: 15, fontWeight: '700', color: '#111827' },
+  priceTotalValue: { fontSize: 16, fontWeight: '800', color: '#1a6b5a' },
 
-  pollNote: { fontSize: 11, color: '#9ca3af', textAlign: 'center', paddingBottom: 4 },
+  // Address
+  addressBox: { flexDirection: 'row', gap: 10, alignItems: 'flex-start' },
+  addressText: { flex: 1, fontSize: 13, color: '#374151', lineHeight: 20 },
 
-  // Rating card
-  ratingSubtitle: { fontSize: 13, color: '#6b7280', marginBottom: 14 },
-  starsRow: { flexDirection: 'row', gap: 10, marginBottom: 16 },
-  starIcon: { fontSize: 32, color: '#d1d5db' },
-  starIconActive: { color: '#f59e0b' },
-  ratingInput: { borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10, padding: 12, fontSize: 14, color: '#1f2937', minHeight: 72, textAlignVertical: 'top', marginBottom: 14 },
-  ratingBtn: { backgroundColor: '#3d6b4f', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
-  ratingBtnDisabled: { backgroundColor: '#9ca3af' },
-  ratingBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  ratingDoneWrap: { alignItems: 'center', paddingVertical: 12, gap: 6 },
+  // Rating
+  ratingBox: { gap: 14 },
+  ratingInput: {
+    borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10,
+    padding: 12, fontSize: 14, color: '#374151',
+    backgroundColor: '#f9fafb', minHeight: 80,
+  },
+  ratingSubmitBtn: {
+    backgroundColor: '#1a6b5a', borderRadius: 10,
+    paddingVertical: 12, alignItems: 'center',
+  },
+  ratingSubmitText: { color: '#fff', fontWeight: '700', fontSize: 14 },
+  ratingDoneBox: { alignItems: 'center', paddingVertical: 12, gap: 8 },
   ratingDoneEmoji: { fontSize: 36 },
-  ratingDoneTitle: { fontSize: 16, fontWeight: '700', color: '#1f2937' },
-  ratingDoneSub: { fontSize: 13, color: '#6b7280' },
+  ratingDoneText: { fontSize: 15, fontWeight: '600', color: '#374151' },
 
-  // Reorder + invoice
-  reorderBtn: { backgroundColor: '#3d6b4f', borderRadius: 12, paddingVertical: 13, alignItems: 'center', marginBottom: 10 },
-  reorderBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
-  invoiceBtn: { borderWidth: 1.5, borderColor: '#3d6b4f', borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
-  invoiceBtnText: { color: '#3d6b4f', fontWeight: '700', fontSize: 15 },
-  cancelBtn: { backgroundColor: '#dc2626', borderRadius: 12, paddingVertical: 13, alignItems: 'center' },
-  cancelBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  // Actions
+  actionRow: { flexDirection: 'row', gap: 12, marginHorizontal: 16, marginTop: 16 },
+  actionBtnReorder: {
+    flex: 1, paddingVertical: 14, borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#1a6b5a', alignItems: 'center',
+    backgroundColor: '#f0fdf4',
+  },
+  actionBtnReorderText: { fontSize: 14, fontWeight: '700', color: '#1a6b5a' },
+  actionBtnCancel: {
+    flex: 1, paddingVertical: 14, borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#dc2626', alignItems: 'center',
+    backgroundColor: '#fff5f5',
+  },
+  actionBtnCancelText: { fontSize: 14, fontWeight: '700', color: '#dc2626' },
+
+  btnDisabled: { opacity: 0.5 },
+
+  // Modal
+  modalOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0,0,0,0.55)',
+    justifyContent: 'flex-end', zIndex: 99,
+  },
+  modalSheet: {
+    backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24,
+    padding: 24, paddingBottom: 40,
+  },
+  modalTitle: { fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4 },
+  modalSub: { fontSize: 13, color: '#6b7280', marginBottom: 16 },
+  modalLabel: { fontSize: 13, fontWeight: '600', color: '#374151', marginBottom: 6 },
+  modalInput: {
+    borderWidth: 1, borderColor: '#e5e7eb', borderRadius: 10,
+    padding: 12, fontSize: 14, color: '#374151',
+    backgroundColor: '#f9fafb', minHeight: 90, marginBottom: 20,
+  },
+  modalBtnRow: { flexDirection: 'row', gap: 12 },
+  modalBtnKeep: {
+    flex: 1, paddingVertical: 13, borderRadius: 12,
+    borderWidth: 1.5, borderColor: '#e5e7eb', alignItems: 'center',
+  },
+  modalBtnKeepText: { fontSize: 14, fontWeight: '600', color: '#374151' },
+  modalBtnConfirm: {
+    flex: 1, paddingVertical: 13, borderRadius: 12,
+    backgroundColor: '#dc2626', alignItems: 'center',
+  },
+  modalBtnConfirmText: { fontSize: 14, fontWeight: '700', color: '#fff' },
 });
