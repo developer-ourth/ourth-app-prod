@@ -44,14 +44,20 @@ export default function TabsLayout() {
           backgroundColor: '#fff',
           borderTopColor: '#f3f4f6',
           borderTopWidth: 1,
-          paddingBottom: insets.bottom,
-          paddingTop: 2,
-          height: 60 + insets.bottom,
+          paddingBottom: Math.max(insets.bottom, 6),
+          paddingTop: 4,
+          height: 58 + Math.max(insets.bottom, 6),
+        },
+        tabBarItemStyle: {
+          paddingHorizontal: 0,
+          marginHorizontal: 0,
         },
         tabBarLabelStyle: {
-          fontSize: 11,
+          fontSize: 10,
           fontWeight: '500',
+          paddingBottom: 2,
         },
+        tabBarAllowFontScaling: false,
       }}
     >
       <Tabs.Screen

@@ -22,6 +22,7 @@ import api, { VENDOR_GSTIN_KEY, VENDOR_ID_KEY, VENDOR_CODE_KEY, TOKEN_KEY } from
 import * as SecureStore from 'expo-secure-store';
 import LocationPickerModal from '@/components/ui/LocationPickerModal';
 import { INDIA_STATES, getCitiesForState } from '@/lib/indiaLocations';
+import { Eye, EyeOff } from '@/components/icons';
 
 const { width: W, height: H } = Dimensions.get('window');
 const SX = W / 360;
@@ -100,12 +101,15 @@ export default function RegisterScreen() {
       return;
     }
 
-    if (trimmedEmail) {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(trimmedEmail)) {
-        Alert.alert('Invalid Email', 'Please enter a valid email address.');
-        return;
-      }
+    if (!trimmedEmail) {
+      Alert.alert('Validation', 'Please enter your email address.');
+      return;
+    }
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(trimmedEmail)) {
+      Alert.alert('Invalid Email', 'Please enter a valid email address.');
+      return;
     }
 
     if (password.length < 8) {
@@ -298,7 +302,7 @@ export default function RegisterScreen() {
             />
           </Field>
 
-          <Field label="Email Address (optional)">
+          <Field label="Email Address">
             <TextInput
               style={styles.input}
               value={email}
@@ -482,12 +486,13 @@ const styles = StyleSheet.create({
     paddingLeft: 8 * SX,
   },
   input: {
-    height:            46,
+    height:            48,
     borderRadius:      10,
     paddingHorizontal: 12 * SX,
-    fontSize:          18 * SX,
+    paddingVertical:   0,
+    fontSize:          15 * SX,
     fontFamily:        'Poppins',
-    fontWeight:        '700',
+    fontWeight:        '600',
     color:             '#4A3728',
     backgroundColor:   'rgba(255, 255, 255, 0.12)',
     borderWidth:       1,

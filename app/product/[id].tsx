@@ -183,16 +183,7 @@ export default function ProductDetailScreen() {
                     ))}
                   </ScrollView>
 
-                  {imageUrls.length > 1 && (
-                    <View style={styles.paginationRow}>
-                      {imageUrls.map((_, index) => (
-                        <View
-                          key={`dot-${index}`}
-                          style={[styles.paginationDot, index === activeImageIndex && styles.paginationDotActive]}
-                        />
-                      ))}
-                    </View>
-                  )}
+
                 </>
               ) : imageUri ? (
                 <Image source={{ uri: imageUri }} style={styles.heroImage} resizeMode="contain" />

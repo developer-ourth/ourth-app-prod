@@ -39,6 +39,8 @@ import {
   Mic as _Mic,
   Eye as _Eye,
   EyeOff as _EyeOff,
+  CheckCircle as _CheckCircle,
+  ShieldCheck as _ShieldCheck,
 } from 'lucide-react-native';
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -76,3 +78,5 @@ export const Leaf         = _Leaf         as AnyIcon;
 export const Pencil       = _Pencil       as AnyIcon;
 export const Eye          = _Eye          as AnyIcon;
 export const EyeOff       = _EyeOff       as AnyIcon;
+export const CheckCircle  = _CheckCircle  as AnyIcon;
+export const ShieldCheck  = _ShieldCheck  as AnyIcon;

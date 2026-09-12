@@ -156,6 +156,9 @@ export interface Order {
   cancelled_at: string | null;
   items?: OrderItem[];
   items_count?: number;
+  green_points_used?: number;
+  green_points_earned?: number;
+  use_green_points?: boolean;
   vendor?: Pick<Vendor, 'id' | 'business_name' | 'logo_url' | 'city'>;
 }
 

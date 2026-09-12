@@ -77,8 +77,8 @@ api.interceptors.response.use(
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
 export const authAPI = {
-  forgotPassword: (email: string) =>
-    api.post<{ success: boolean; message: string }>('/auth/forgot-password', { email }),
+  forgotPassword: (input: string) =>
+    api.post<{ success: boolean; message: string }>('/auth/forgot-password', { identifier: input, email: input }),
   resetPassword: (token: string, email: string, password: string) =>
     api.post<{ success: boolean; message: string }>('/auth/reset-password', {
       token,

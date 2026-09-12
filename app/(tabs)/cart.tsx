@@ -15,7 +15,7 @@ import {
   Switch,
   TextInput,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { LinearGradient } from 'expo-linear-gradient';
 import { BlurView } from 'expo-blur';
@@ -62,6 +62,7 @@ function getPaymentErrorMessage(err: unknown): string {
 
 export default function CartScreen() {
   const router = useRouter();
+  const insets = useSafeAreaInsets();
   const { cart, loading, fetchCart, updateItem, removeItem, clearCart, addItem, applyCoupon, removeCoupon, setAgentCode, removeAgentCode } = useCartStore();
   const { user } = useAuthStore();
   // Temporarily disabled for now: B2B and B2C use the same rate.
@@ -226,137 +227,20 @@ export default function CartScreen() {
     [removeItem],
   );
 
-  const handleCheckout = useCallback(async () => {
+  const handleCheckout = useCallback(() => {
     if (!selectedAddress) {
-      Alert.alert('No Address', 'Please select a delivery address before placing the order.');
+      Alert.alert('Select Address', 'Please select a delivery address before proceeding.');
+      setShowAddressPicker(true);
       return;
     }
-
-    const isCod = selectedPayment === 'cod';
-    const paymentLabel = isCod ? 'Cash on Delivery' : 'UPI / Paytm';
-    const isRazorpayModuleReady = typeof (RazorpayCheckout as { open?: unknown })?.open === 'function';
-
-    if (!isCod && (isExpoGo || !isRazorpayModuleReady)) {
-      Alert.alert(
-        'UPI Not Available',
-        'UPI/Paytm requires a development or production build with Razorpay native module. Please install a dev build and try again.',
-      );
-      return;
-    }
-
-    Alert.alert(
-      'Confirm Order',
-      `Place order for ₹${cart?.total_amount ?? '0'} (${paymentLabel}) to ${selectedAddress.name}?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Place Order',
-          onPress: async () => {
-            setPlacing(true);
-            let createdOrderId: number | null = null;
-            try {
-              const orderRes = await orderAPI.placeOrder({
-                delivery_address_line1: selectedAddress.address_line1,
-                delivery_address_line2: selectedAddress.address_line2,
-                delivery_city:         selectedAddress.city         ?? '',
-                delivery_state:        selectedAddress.state        ?? '',
-                delivery_postal_code:  selectedAddress.postal_code  ?? '',
-                delivery_phone:        selectedAddress.mobile       ?? '',
-                payment_method:        isCod ? 'cod' : 'upi',
-                order_type:            isB2B ? 'b2b' : 'b2c',
-                buyer_gstin:           isB2B ? (user as any).vendor?.gstin : undefined,
-                use_green_points:      useGreenPoints,
-                source:                'app',
-              });
-
-              const createdOrder = orderRes.data?.data ?? orderRes.data;
-              createdOrderId = createdOrder?.id ?? null;
-
-              if (!createdOrderId) {
-                throw new Error('Order created but missing order id for payment.');
-              }
-
-              if (!isCod) {
-                const initiateRes = await orderAPI.initiateRazorpayPayment(createdOrderId);
-                const initiateData = initiateRes.data?.data ?? initiateRes.data;
-                const razorpayKey = initiateData.key ?? RAZORPAY_KEY_ID;
-
-                if (!razorpayKey) {
-                  throw new Error('Razorpay is not configured.');
-                }
-
-                let razorpayResponse;
-                try {
-                  razorpayResponse = await RazorpayCheckout.open({
-                    key: razorpayKey,
-                    amount: initiateData.amount,
-                    currency: initiateData.currency,
-                    name: 'OURTH',
-                    description: `Order #${createdOrder.order_number ?? createdOrderId}`,
-                    order_id: initiateData.razorpay_order_id,
-                    prefill: {
-                      contact: selectedAddress.mobile ?? '',
-                      name: selectedAddress.name,
-                    },
-                    theme: { color: '#1a6b5a' },
-                  });
-                } catch (paymentErr) {
-                  const paymentMessage = getPaymentErrorMessage(paymentErr);
-                  if (/cancel|dismiss|back/i.test(paymentMessage)) {
-                    throw new Error('Payment cancelled by user.');
-                  }
-                  throw new Error(paymentMessage);
-                }
-
-                try {
-                  await orderAPI.verifyRazorpayPayment(createdOrderId, {
-                    razorpay_order_id: razorpayResponse.razorpay_order_id ?? initiateData.razorpay_order_id,
-                    razorpay_payment_id: razorpayResponse.razorpay_payment_id,
-                    razorpay_signature: razorpayResponse.razorpay_signature,
-                  });
-                } catch (verifyErr) {
-                  throw new Error(`Payment verification failed: ${getPaymentErrorMessage(verifyErr)}`);
-                }
-              }
-
-              await clearCart();
-              router.replace('/(tabs)/orders');
-              Alert.alert('Success', isCod ? 'Order placed successfully.' : 'Payment successful and order placed.');
-            } catch (err: unknown) {
-              const msg = err instanceof Error ? err.message : 'Could not place order. Please try again.';
-
-              if (!isCod && createdOrderId) {
-                if (msg === 'Payment cancelled by user.') {
-                  Alert.alert(
-                    'Payment Failed / Cancelled ⚠️',
-                    'You cancelled or closed the Razorpay payment window before completion. Your order has been recorded with pending payment.',
-                    [
-                      { text: 'View Orders', onPress: () => router.replace('/(tabs)/orders') },
-                      { text: 'OK', style: 'cancel' },
-                    ],
-                  );
-                  return;
-                }
-
-                Alert.alert(
-                  'Payment Failed ❌',
-                  `Payment processing failed: ${msg}`,
-                  [
-                    { text: 'View Orders', onPress: () => router.replace('/(tabs)/orders') },
-                    { text: 'OK', style: 'cancel' },
-                  ],
-                );
-              } else {
-                Alert.alert('Order Failed', msg);
-              }
-            } finally {
-              setPlacing(false);
-            }
-          },
-        },
-      ],
-    );
-  }, [selectedAddress, selectedPayment, cart, clearCart, router]);
+    router.push({
+      pathname: '/payment',
+      params: {
+        addressId: String(selectedAddress.id),
+        useGreenPoints: String(useGreenPoints),
+      },
+    });
+  }, [selectedAddress, useGreenPoints, router]);
 
   if (loading && !cart) {
     return (
@@ -889,7 +773,7 @@ export default function CartScreen() {
             </Modal>
 
             {/* Delivery + Bottom bar — pinned together */}
-            <View style={styles.bottomBlock}>
+            <View style={[styles.bottomBlock, { marginBottom: Math.max(insets.bottom, 12) }]}>
               {/* Delivery info */}
               <View style={styles.deliveryRow}>
                 {selectedAddress ? (
@@ -913,52 +797,23 @@ export default function CartScreen() {
 
               {/* Bottom bar */}
               <View style={styles.bottomBar}>
-                <TouchableOpacity style={styles.paymentLeft} onPress={() => setShowPaymentPicker(true)}>
-                  <View style={styles.payRow}>
-                    <Text style={styles.payLabel}>Pay Using </Text>
-                    <ArrowUp size={14} color="#374151" />
-                  </View>
-                  <Text style={styles.payMethod}>
-                    {selectedPayment === 'cod' ? 'Cash on Delivery' : 'UPI / Paytm'}
-                  </Text>
-                </TouchableOpacity>
-
-                {/* Payment picker modal */}
-                <Modal
-                  visible={showPaymentPicker}
-                  transparent
-                  animationType="slide"
-                  onRequestClose={() => setShowPaymentPicker(false)}
-                >
-                  <Pressable style={styles.modalOverlay} onPress={() => setShowPaymentPicker(false)}>
-                    <Pressable style={styles.pickerSheet}>
-                      <Text style={styles.pickerTitle}>Select Payment Method</Text>
-                      {PAYMENT_OPTIONS.map((opt) => (
-                        <TouchableOpacity
-                          key={opt.key}
-                          style={[styles.pickerItem, selectedPayment === opt.key && styles.pickerItemActive]}
-                          onPress={() => { setSelectedPayment(opt.key); setShowPaymentPicker(false); }}
-                        >
-                          <View style={{ flex: 1 }}>
-                            <Text style={styles.pickerItemName}>{opt.label}</Text>
-                            <Text style={styles.pickerItemAddr}>{opt.sub}</Text>
-                          </View>
-                          {selectedPayment === opt.key && <ChevronRight size={16} color="#1a6b5a" />}
-                        </TouchableOpacity>
-                      ))}
-                    </Pressable>
-                  </Pressable>
-                </Modal>
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 12, color: '#6b7280' }}>Total Price</Text>
+                  <Text style={{ fontSize: 20, fontWeight: '800', color: '#166534' }}>₹{total}</Text>
+                </View>
                 <TouchableOpacity
-                  style={[styles.placeOrderBtn, placing && { opacity: 0.6 }]}
+                  style={{
+                    backgroundColor: '#166534',
+                    borderRadius: 12,
+                    paddingHorizontal: 28,
+                    paddingVertical: 14,
+                    alignItems: 'center',
+                    justify: 'center',
+                    elevation: 3,
+                  }}
                   onPress={handleCheckout}
-                  disabled={placing}
                 >
-                  {placing ? (
-                    <ActivityIndicator size="small" color="#fff" />
-                  ) : (
-                    <Text style={styles.placeOrderText}>₹{total}  Place Order</Text>
-                  )}
+                  <Text style={{ color: '#ffffff', fontWeight: '700', fontSize: 16 }}>Place Order</Text>
                 </TouchableOpacity>
               </View>
             </View>

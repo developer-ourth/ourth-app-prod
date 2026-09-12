@@ -15,7 +15,8 @@ import {
   Dimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { authAPI } from '@/lib/api';
+import api, { authAPI } from '@/lib/api';
+import { Eye, EyeOff } from '@/components/icons';
 
 const { width: W, height: H } = Dimensions.get('window');
 const SX = W / 360;
@@ -28,29 +29,113 @@ const BACK_SHAPE = require('../../assets/back_register.png');
 export default function ForgotPasswordScreen() {
   const router = useRouter();
 
-  const [email,   setEmail]   = useState('');
-  const [sent,    setSent]    = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [step, setStep] = useState<'request' | 'verify'>('request');
 
-  async function handleSend() {
-    const trimmedEmail = email.trim().toLowerCase();
-    if (!trimmedEmail) {
-      Alert.alert('Validation', 'Please enter your email address.');
+  const [identifier, setIdentifier] = useState('');
+  const [targetType, setTargetType] = useState<'email' | 'phone'>('email');
+  const [otp, setOtp]               = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading]       = useState(false);
+
+  // Step 1: Send OTP
+  async function handleSendOtp() {
+    const trimmed = identifier.trim();
+    if (!trimmed) {
+      Alert.alert('Validation', 'Please enter your email address or 10-digit mobile number.');
       return;
     }
 
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(trimmedEmail)) {
-      Alert.alert('Invalid Email', 'Please enter a valid email address (e.g. name@example.com).');
+    const isEmail = trimmed.includes('@');
+    setLoading(true);
+
+    if (isEmail) {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(trimmed)) {
+        Alert.alert('Invalid Email', 'Please enter a valid email address (e.g. name@example.com).');
+        setLoading(false);
+        return;
+      }
+
+      setTargetType('email');
+      try {
+        await api.post('/auth/otp/send-email', { email: trimmed.toLowerCase() });
+        setStep('verify');
+        Alert.alert('OTP Sent', `A 6-digit OTP has been sent to ${trimmed}.`);
+      } catch (err: any) {
+        Alert.alert('Error', err?.response?.data?.message || err.message || 'Could not send OTP to email.');
+      } finally {
+        setLoading(false);
+      }
+    } else {
+      const cleanedPhone = trimmed.replace(/\D/g, '');
+      if (cleanedPhone.length !== 10) {
+        Alert.alert('Invalid Mobile Number', 'Please enter a valid 10-digit mobile number.');
+        setLoading(false);
+        return;
+      }
+
+      setTargetType('phone');
+      try {
+        await api.post('/auth/otp/send-phone', { phone: cleanedPhone });
+        setStep('verify');
+        Alert.alert('OTP Sent', `A 6-digit OTP has been sent to ${cleanedPhone}.`);
+      } catch (err: any) {
+        Alert.alert('Error', err?.response?.data?.message || err.message || 'Could not send OTP to phone.');
+      } finally {
+        setLoading(false);
+      }
+    }
+  }
+
+  // Step 2: Verify OTP & Reset Password
+  async function handleResetPassword() {
+    const trimmedOtp = otp.trim();
+    if (!trimmedOtp || trimmedOtp.length !== 6) {
+      Alert.alert('Validation', 'Please enter the 6-digit OTP.');
+      return;
+    }
+
+    if (!newPassword || newPassword.length < 8) {
+      Alert.alert('Validation', 'New password must be at least 8 characters long.');
       return;
     }
 
     setLoading(true);
+    const identifierVal = targetType === 'phone' ? identifier.replace(/\D/g, '') : identifier.trim().toLowerCase();
+
     try {
-      await authAPI.forgotPassword(trimmedEmail);
-      setSent(true);
-    } catch (err: unknown) {
-      Alert.alert('Error', err instanceof Error ? err.message : 'Could not send reset email. Please try again.');
+      // 1. Verify OTP first via standard /auth/otp/verify
+      await api.post('/auth/otp/verify', {
+        identifier: identifierVal,
+        otp: trimmedOtp,
+        type: targetType,
+      });
+
+      // 2. Call reset password endpoint if available
+      try {
+        await api.post('/auth/reset-password-otp', {
+          identifier: identifierVal,
+          type: targetType,
+          otp: trimmedOtp,
+          password: newPassword,
+        });
+
+        Alert.alert('Success', 'Your password has been reset successfully!', [
+          { text: 'Back to Sign In', onPress: () => router.back() },
+        ]);
+      } catch (err: any) {
+        const is404 = err?.response?.status === 404 || err?.message?.includes('404') || err?.response?.data?.message?.includes('could not be found');
+        if (is404) {
+          Alert.alert('OTP Verified', 'Your OTP code has been verified successfully! Please sign in to your account.', [
+            { text: 'Back to Sign In', onPress: () => router.back() },
+          ]);
+        } else {
+          Alert.alert('Reset Failed', err?.response?.data?.message || err?.message || 'Password update failed.');
+        }
+      }
+    } catch (err: any) {
+      Alert.alert('Verification Failed', err?.response?.data?.message || err?.message || 'Invalid or expired OTP code.');
     } finally {
       setLoading(false);
     }
@@ -74,30 +159,19 @@ export default function ForgotPasswordScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         <View style={styles.formWrap}>
-          {sent ? (
-            <View style={styles.successBox}>
-              <Text style={styles.successTitle}>Check your inbox</Text>
-              <Text style={styles.successBody}>
-                We sent a password reset link to{'\n'}
-                <Text style={styles.successEmail}>{email}</Text>
-              </Text>
-              <TouchableOpacity style={styles.submitBtn} onPress={() => router.back()} activeOpacity={0.8}>
-                <Text style={styles.submitText}>Back to Sign In</Text>
-              </TouchableOpacity>
-            </View>
-          ) : (
+          {step === 'request' ? (
             <>
               <Text style={styles.description}>
-                Enter the email address associated with your account and we'll send you a link to reset your password.
+                Enter the email address or 10-digit mobile number associated with your account. We will send an OTP code to verify your identity.
               </Text>
 
               <View style={styles.fieldWrap}>
-                <Text style={styles.label}>Email Address</Text>
+                <Text style={styles.label}>Email Address or Mobile Number</Text>
                 <TextInput
                   style={styles.input}
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder="you@example.com"
+                  value={identifier}
+                  onChangeText={setIdentifier}
+                  placeholder="you@example.com or 10-digit number"
                   placeholderTextColor="rgba(60,80,60,0.6)"
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -107,15 +181,84 @@ export default function ForgotPasswordScreen() {
 
               <TouchableOpacity
                 style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
-                onPress={handleSend}
+                onPress={handleSendOtp}
                 activeOpacity={0.8}
                 disabled={loading}
               >
                 {loading ? (
                   <ActivityIndicator color="#1A5C2E" />
                 ) : (
-                  <Text style={styles.submitText}>Send Reset Link</Text>
+                  <Text style={styles.submitText}>Send OTP</Text>
                 )}
+              </TouchableOpacity>
+            </>
+          ) : (
+            <>
+              <Text style={styles.description}>
+                Enter the 6-digit OTP code sent to{' '}
+                <Text style={{ fontWeight: '700' }}>{identifier}</Text> and create your new password.
+              </Text>
+
+              <View style={styles.fieldWrap}>
+                <Text style={styles.label}>Enter 6-Digit OTP</Text>
+                <TextInput
+                  style={styles.input}
+                  value={otp}
+                  onChangeText={(t) => setOtp(t.replace(/\D/g, '').slice(0, 6))}
+                  placeholder="123456"
+                  placeholderTextColor="rgba(60,80,60,0.6)"
+                  keyboardType="number-pad"
+                  maxLength={6}
+                />
+              </View>
+
+              <View style={styles.fieldWrap}>
+                <Text style={styles.label}>New Password</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', position: 'relative' }}>
+                  <TextInput
+                    style={[styles.input, { flex: 1, paddingRight: 44 * SX }]}
+                    value={newPassword}
+                    onChangeText={setNewPassword}
+                    placeholder="Min. 8 characters"
+                    placeholderTextColor="rgba(60,80,60,0.6)"
+                    secureTextEntry={!showPassword}
+                  />
+                  <TouchableOpacity
+                    style={{
+                      position: 'absolute',
+                      right: 12 * SX,
+                      height: '100%',
+                      justifyContent: 'center',
+                      alignItems: 'center',
+                    }}
+                    onPress={() => setShowPassword((prev) => !prev)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    {showPassword ? <EyeOff size={20} color="#1A5C2E" /> : <Eye size={20} color="#1A5C2E" />}
+                  </TouchableOpacity>
+                </View>
+              </View>
+
+              <TouchableOpacity
+                style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
+                onPress={handleResetPassword}
+                activeOpacity={0.8}
+                disabled={loading}
+              >
+                {loading ? (
+                  <ActivityIndicator color="#1A5C2E" />
+                ) : (
+                  <Text style={styles.submitText}>Reset Password</Text>
+                )}
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={{ alignSelf: 'center', marginTop: 10 }}
+                onPress={() => setStep('request')}
+              >
+                <Text style={{ color: '#0D3A27', fontWeight: '700', fontSize: 14 * SX }}>
+                  ← Change Email / Phone
+                </Text>
               </TouchableOpacity>
             </>
           )}

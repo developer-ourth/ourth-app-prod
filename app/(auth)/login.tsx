@@ -254,7 +254,7 @@ export default function LoginScreen() {
               <Text style={styles.label}>{otpType === 'phone' ? 'Phone Number' : 'Email Address'}</Text>
               {otpType === 'phone' ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                  <View style={[styles.input, { width: 54, alignItems: 'center', justifyContent: 'center', flexShrink: 0 }]}>
+                  <View style={[styles.input, { width: 62 * SX, minWidth: 56, alignItems: 'center', justifyContent: 'center', flexShrink: 0, paddingHorizontal: 0 }]}>
                     <Text style={{ fontSize: 16 * SX, fontWeight: '700', color: '#1A5C2E' }}>+91</Text>
                   </View>
                   <TextInput
@@ -341,10 +341,10 @@ const styles = StyleSheet.create({
   otpTypeActive: { backgroundColor: 'rgba(255, 255, 255, 0.2)' },
   otpTypeText: { color: '#1A5C2E', fontWeight: '700' },
 
-  label: { fontSize: 20 * SX, fontWeight: '700', color: '#1A5C2E', marginBottom: 6 * SY, paddingLeft: 8 * SX },
-  input: { height: 46, borderRadius: 10, paddingHorizontal: 14 * SX, fontSize: 18 * SX, fontWeight: '700', color: '#1A5C2E', backgroundColor: 'rgba(255, 255, 255, 0.12)', borderWidth: 1, borderColor: '#1A5C2E' },
+  label: { fontSize: 18 * SX, fontWeight: '700', color: '#1A5C2E', marginBottom: 6 * SY, paddingLeft: 4 * SX },
+  input: { height: 48, borderRadius: 10, paddingHorizontal: 12 * SX, fontSize: 15 * SX, fontWeight: '600', color: '#1A5C2E', backgroundColor: 'rgba(255, 255, 255, 0.12)', borderWidth: 1, borderColor: '#1A5C2E', paddingVertical: 0 },
   passwordWrap: { position: 'relative', justifyContent: 'center' },
-  eyeBtn: { position: 'absolute', right: 12 * SX, top: 13 },
+  eyeBtn: { position: 'absolute', right: 12 * SX, top: 14 },
   forgotWrap: { alignSelf: 'flex-end', marginTop: 8, paddingRight: 4 * SX },
   forgotText: { fontSize: 14 * SX, color: '#1A5C2E', fontWeight: '700' },
   

@@ -395,7 +395,7 @@ export default function HomeScreen() {
               horizontal
               showsHorizontalScrollIndicator={false}
               style={{ height: 85, flexShrink: 0 }}
-              contentContainerStyle={{ paddingHorizontal: 0, paddingBottom: 6, gap: 12, alignItems: 'flex-start' }}
+              contentContainerStyle={{ paddingHorizontal: 4, paddingBottom: 6, gap: 6, alignItems: 'flex-start' }}
             >
               {/* All */}
               <TouchableOpacity
@@ -586,7 +586,7 @@ const styles = StyleSheet.create({
   voiceSubtext:     { fontSize: 13, color: '#6b7280', marginBottom: 20 },
   voiceCloseBtn:    { paddingVertical: 8, paddingHorizontal: 20, borderRadius: 10, borderWidth: 1, borderColor: '#d1d5db' },
   voiceCloseText:   { fontSize: 14, fontWeight: '600', color: '#4b5563' },
-  catItem:          { alignItems: 'center', gap: 4, paddingVertical: 4, width: 80 },
+  catItem:          { alignItems: 'center', gap: 4, paddingVertical: 4, width: 64 },
   catEmoji:         { fontSize: 28, opacity: 1 },
   catIcon:          { width: 36, height: 36, opacity: 0.7, tintColor: '#ffffff' },
   catIconActive:    { tintColor: '#fde047', opacity: 1 },

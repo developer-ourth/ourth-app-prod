@@ -48,41 +48,22 @@ export default function LandingScreen() {
   const mascotBounce = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    // Entrance sequence
-    Animated.sequence([
-      // 1. Clouds drift in
-      Animated.parallel([
-        Animated.timing(cloud1X, { toValue: -20, duration: 900, useNativeDriver: true }),
-        Animated.timing(cloud2X, { toValue: W - 180, duration: 900, useNativeDriver: true }),
-      ]),
-      // 2. Title fades down
-      Animated.parallel([
-        Animated.timing(titleOpacity, { toValue: 1, duration: 600, useNativeDriver: true }),
-        Animated.timing(titleY, { toValue: 0, duration: 600, useNativeDriver: true }),
-      ]),
-      // 3. Bird flies in from right
-      Animated.parallel([
-        Animated.timing(birdX, { toValue: W * 0.62, duration: 700, useNativeDriver: true }),
-        Animated.timing(birdOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-      ]),
-      // 4. Mascot bounces up
-      Animated.parallel([
-        Animated.spring(mascotY, { toValue: 0, friction: 5, tension: 60, useNativeDriver: true }),
-        Animated.timing(mascotOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
-      ]),
-      // 5. Button appears
-      Animated.parallel([
-        Animated.timing(btnOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.spring(btnScale, { toValue: 1, friction: 5, tension: 80, useNativeDriver: true }),
-      ]),
+    // Fast parallel entrance sequence
+    Animated.parallel([
+      Animated.timing(cloud1X, { toValue: -20, duration: 400, useNativeDriver: true }),
+      Animated.timing(cloud2X, { toValue: W - 180, duration: 400, useNativeDriver: true }),
+      Animated.timing(titleOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+      Animated.timing(titleY, { toValue: 0, duration: 350, useNativeDriver: true }),
+      Animated.timing(birdX, { toValue: W * 0.62, duration: 400, useNativeDriver: true }),
+      Animated.timing(birdOpacity, { toValue: 1, duration: 300, useNativeDriver: true }),
+      Animated.spring(mascotY, { toValue: 0, friction: 6, tension: 90, useNativeDriver: true }),
+      Animated.timing(mascotOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
     ]).start(() => {
-      // Idle mascot float loop
-      Animated.loop(
-        Animated.sequence([
-          Animated.timing(mascotBounce, { toValue: -10, duration: 1200, useNativeDriver: true }),
-          Animated.timing(mascotBounce, { toValue: 0, duration: 1200, useNativeDriver: true }),
-        ]),
-      ).start();
+      // Transition quickly to welcome screen
+      const timer = setTimeout(() => {
+        router.replace('/(auth)/welcome');
+      }, 300);
+      return () => clearTimeout(timer);
     });
   }, []);
 
@@ -159,30 +140,6 @@ export default function LandingScreen() {
       {/* Foreground flowers (on top of ground layers) */}
       <Image source={FLOWERS2} style={styles.flowersLeft} resizeMode="contain" />
       <Image source={FLOWERS1} style={styles.flowersRight} resizeMode="contain" />
-
-      {/* Get Started button */}
-      <Animated.View
-        style={[
-          styles.btnWrapper,
-          { opacity: btnOpacity, transform: [{ scale: btnScale }] },
-        ]}
-      >
-        <TouchableOpacity
-          style={styles.btn}
-          activeOpacity={0.85}
-          onPress={() => router.push('/(auth)/welcome')}
-        >
-          <LinearGradient
-            colors={['#1A5C2E', '#B8DEC4']}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 1, y: 0 }}
-            style={styles.btnGradient}
-          >
-            <Text style={styles.btnText}>Get Started</Text>
-            <Image source={CHEVRON} style={styles.btnChevron} resizeMode="contain" />
-          </LinearGradient>
-        </TouchableOpacity>
-      </Animated.View>
     </View>
   );
 }

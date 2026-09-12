@@ -123,14 +123,6 @@ export default function ConsumerLoginScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity
-            onPress={() => router.push('/(auth)/forgot-password')}
-            activeOpacity={0.7}
-            style={styles.forgotWrap}
-          >
-            <Text style={styles.forgotText}>Forgot password?</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
             style={[styles.submitBtn, loading && styles.submitBtnDisabled]}
             onPress={handleLogin}
             activeOpacity={0.8}

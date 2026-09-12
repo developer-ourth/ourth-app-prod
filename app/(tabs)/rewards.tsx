@@ -12,9 +12,9 @@ import {
   StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { Leaf, Gift, ChevronLeft } from '@/components/icons';
-import api from '@/lib/api';
-import type { RewardTransaction, RewardCatalogItem, ApiResponse } from '@/lib/types';
+import { Leaf, Gift, ChevronLeft, ShoppingBag, ChevronRight } from '@/components/icons';
+import api, { orderAPI } from '@/lib/api';
+import type { RewardTransaction, RewardCatalogItem, ApiResponse, Order } from '@/lib/types';
 
 const BG_IMAGE = require('../../assets/Frame16.png');
 
@@ -27,6 +27,7 @@ export default function RewardsScreen() {
   const router = useRouter();
   const [balance, setBalance] = useState(0);
   const [transactions, setTransactions] = useState<RewardTransaction[]>([]);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [catalog, setCatalog] = useState<RewardCatalogItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -34,13 +35,23 @@ export default function RewardsScreen() {
 
   const fetchData = useCallback(async () => {
     try {
-      const [rewardsRes, catalogRes] = await Promise.all([
-        api.get<ApiResponse<RewardsData>>('/me/rewards'),
-        api.get<ApiResponse<RewardCatalogItem[]>>('/me/rewards/catalog'),
+      const [rewardsRes, catalogRes, ordersRes] = await Promise.all([
+        api.get<ApiResponse<RewardsData>>('/me/rewards').catch(() => null),
+        api.get<ApiResponse<RewardCatalogItem[]>>('/me/rewards/catalog').catch(() => null),
+        orderAPI.listOrders().catch(() => null),
       ]);
-      setBalance(rewardsRes.data.data.points_balance);
-      setTransactions(rewardsRes.data.data.transactions);
-      setCatalog(catalogRes.data.data);
+
+      if (rewardsRes?.data?.data) {
+        setBalance(rewardsRes.data.data.points_balance ?? 0);
+        setTransactions(rewardsRes.data.data.transactions ?? []);
+      }
+      if (catalogRes?.data?.data) {
+        setCatalog(catalogRes.data.data ?? []);
+      }
+      if (ordersRes?.data) {
+        const orderList: Order[] = ordersRes.data.data ?? ordersRes.data ?? [];
+        setOrders(orderList);
+      }
     } catch {
       // silently handled
     } finally {
@@ -110,87 +121,134 @@ export default function RewardsScreen() {
           </View>
         </View>
 
-        {/* Tabs */}
-        <View style={styles.tabContainer}>
-          <TouchableOpacity
-            style={[styles.tabPill, tab === 'history' && styles.tabPillActive]}
-            onPress={() => setTab('history')}
-          >
-            <Text style={[styles.tabPillText, tab === 'history' && styles.tabPillTextActive]}>History</Text>
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.tabPill, tab === 'redeem' && styles.tabPillActive]}
-            onPress={() => setTab('redeem')}
-          >
-            <Text style={[styles.tabPillText, tab === 'redeem' && styles.tabPillTextActive]}>Redeem</Text>
-          </TouchableOpacity>
+        {/* Rewards History Title / Header */}
+        <View style={styles.sectionHeader}>
+          <Text style={styles.sectionTitle}>Rewards History</Text>
         </View>
 
-        {tab === 'history' ? (
-          <FlatList
-            data={transactions}
-            keyExtractor={(item) => String(item.id)}
-            contentContainerStyle={styles.listContent}
-            refreshControl={
-              <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={['#16a34a']} />
-            }
-            renderItem={({ item }) => {
-              const isEarned = (item.points ?? 0) >= 0;
-              const formattedDate = item.created_at ? new Date(item.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
-              return (
-                <View style={styles.txCard}>
-                  <View style={styles.txLeft}>
-                    <Text style={styles.txOrderId} numberOfLines={1}>{item.description || item.source || 'Green Points'}</Text>
-                    {formattedDate ? <Text style={styles.txOrderLabel}>{formattedDate}</Text> : null}
-                  </View>
-                  <View style={styles.txRight}>
-                    <Leaf size={18} color={isEarned ? '#16a34a' : '#dc2626'} />
-                    <Text style={[styles.txPoints, isEarned ? { color: '#16a34a' } : { color: '#dc2626' }]}>
-                      {isEarned ? `+${item.points}` : `${item.points}`} leaves
+        <FlatList
+          data={
+            orders.length > 0
+              ? orders.flatMap((ord) => {
+                  const itemsArr: Array<{
+                    id: string;
+                    orderId: number;
+                    title: string;
+                    subtitle: string;
+                    date: string;
+                    points: number;
+                    isEarned: boolean;
+                    isOrder: boolean;
+                    badgeLabel: string;
+                  }> = [];
+
+                  const formattedDate = ord.created_at
+                    ? new Date(ord.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+                    : '';
+
+                  // Check if leaves were used on this order
+                  const usedPoints = ord.green_points_used ?? (ord.use_green_points ? 50 : 0);
+                  if (usedPoints > 0) {
+                    itemsArr.push({
+                      id: `order-used-${ord.id}`,
+                      orderId: ord.id,
+                      title: `Order #${ord.order_number || ord.id}`,
+                      subtitle: `Discount Applied • ${ord.order_status?.toUpperCase() || 'COMPLETED'}`,
+                      date: formattedDate,
+                      points: -Math.abs(usedPoints),
+                      isEarned: false,
+                      isOrder: true,
+                      badgeLabel: 'USED ON ORDER',
+                    });
+                  }
+
+                  // Leaves earned on this order
+                  const earnedPoints = ord.green_points_earned ?? Math.max(1, Math.round(parseFloat(ord.total_amount) * 0.05));
+                  itemsArr.push({
+                    id: `order-earned-${ord.id}`,
+                    orderId: ord.id,
+                    title: `Order #${ord.order_number || ord.id}`,
+                    subtitle: `Total Spent: ₹${ord.total_amount} • ${ord.order_status?.toUpperCase() || 'COMPLETED'}`,
+                    date: formattedDate,
+                    points: earnedPoints,
+                    isEarned: true,
+                    isOrder: true,
+                    badgeLabel: 'EARNED ON ORDER',
+                  });
+
+                  return itemsArr;
+                }).concat(
+                  transactions.map((tx) => ({
+                    id: `tx-${tx.id}`,
+                    orderId: 0,
+                    title: tx.description || tx.source || 'Green Points Reward',
+                    subtitle: tx.source ? `Source: ${tx.source}` : 'Reward activity',
+                    date: tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '',
+                    points: tx.points,
+                    isEarned: (tx.points ?? 0) >= 0,
+                    isOrder: false,
+                    badgeLabel: (tx.points ?? 0) >= 0 ? 'CREDIT' : 'REDEEMED',
+                  }))
+                )
+              : transactions.map((tx) => ({
+                  id: `tx-${tx.id}`,
+                  orderId: 0,
+                  title: tx.description || tx.source || 'Green Points Reward',
+                  subtitle: tx.source ? `Source: ${tx.source}` : 'Reward activity',
+                  date: tx.created_at ? new Date(tx.created_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '',
+                  points: tx.points,
+                  isEarned: (tx.points ?? 0) >= 0,
+                  isOrder: false,
+                  badgeLabel: (tx.points ?? 0) >= 0 ? 'CREDIT' : 'REDEEMED',
+                }))
+          }
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          refreshControl={
+            <RefreshControl refreshing={refreshing} onRefresh={() => { setRefreshing(true); fetchData(); }} colors={['#16a34a']} />
+          }
+          renderItem={({ item }) => (
+            <TouchableOpacity
+              style={styles.txCard}
+              activeOpacity={item.isOrder ? 0.75 : 1}
+              onPress={() => {
+                if (item.isOrder && item.orderId) {
+                  router.push({ pathname: '/order/[id]', params: { id: String(item.orderId) } });
+                }
+              }}
+            >
+              <View style={styles.txLeft}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  {item.isOrder && <ShoppingBag size={15} color="#166534" />}
+                  <Text style={styles.txOrderId} numberOfLines={1}>{item.title}</Text>
+                </View>
+                <Text style={styles.txOrderSub}>{item.subtitle}</Text>
+                {item.date ? <Text style={styles.txOrderLabel}>{item.date}</Text> : null}
+              </View>
+
+              <View style={styles.txRight}>
+                <View style={{ alignItems: 'flex-end', gap: 2 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Leaf size={16} color={item.isEarned ? '#16a34a' : '#dc2626'} fill={item.isEarned ? '#16a34a' : 'none'} />
+                    <Text style={[styles.txPoints, item.isEarned ? { color: '#16a34a' } : { color: '#dc2626' }]}>
+                      {item.isEarned ? `+${item.points}` : `${item.points}`} leaves
                     </Text>
                   </View>
+                  <Text style={[styles.earnedBadge, !item.isEarned && styles.usedBadge]}>
+                    {item.badgeLabel}
+                  </Text>
                 </View>
-              );
-            }}
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <Leaf size={48} color="#000000" />
-                <Text style={styles.emptyTitle}>No transactions yet</Text>
+                {item.isOrder && <ChevronRight size={16} color="#9ca3af" />}
               </View>
-            }
-          />
-        ) : (
-          <FlatList
-            data={catalog}
-            keyExtractor={(item) => String(item.id)}
-            contentContainerStyle={styles.listContent}
-            renderItem={({ item }) => (
-              <View style={styles.rewardCard}>
-                <View style={styles.rewardRow}>
-                  <View style={styles.rewardInfo}>
-                    <Text style={styles.rewardName}>{item.name}</Text>
-                    <Text style={styles.rewardDesc}>{item.description}</Text>
-                  </View>
-                  <TouchableOpacity
-                    style={[styles.redeemBtn, balance >= item.points_required ? styles.redeemBtnActive : styles.redeemBtnDisabled]}
-                    onPress={() => handleRedeem(item)}
-                  >
-                    <Leaf size={14} color={balance >= item.points_required ? '#fff' : '#9ca3af'} style={{ marginRight: 4 }} />
-                    <Text style={[styles.redeemBtnText, balance >= item.points_required ? styles.redeemBtnTextActive : styles.redeemBtnTextDisabled]}>
-                      {item.points_required} leaves
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-            ListEmptyComponent={
-              <View style={styles.empty}>
-                <Gift size={48} color="#d1d5db" />
-                <Text style={styles.emptyTitle}>No rewards available</Text>
-              </View>
-            }
-          />
-        )}
+            </TouchableOpacity>
+          )}
+          ListEmptyComponent={
+            <View style={styles.empty}>
+              <Leaf size={48} color="#16a34a" />
+              <Text style={styles.emptyTitle}>No transactions or order rewards yet</Text>
+            </View>
+          }
+        />
       </SafeAreaView>
     </ImageBackground>
   );
@@ -226,22 +284,8 @@ const styles = StyleSheet.create({
   balanceAmount:        { fontSize: 40, fontWeight: '700', color: '#1f2937' },
   balancePts:           { fontSize: 22, fontWeight: '600', color: '#1f2937', marginTop: 4 },
 
-  // Tabs
-  tabContainer:         {
-    flexDirection: 'row',
-    marginHorizontal: 16,
-    marginBottom: 16,
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    padding: 4,
-    gap: 4,
-  },
-  tabPill:              { flex: 1, paddingVertical: 10, borderRadius: 9, alignItems: 'center' },
-  tabPillActive:        { backgroundColor: '#86efac' },
-  tabPillText:          { fontSize: 15, fontWeight: '600', color: '#6b7280' },
-  tabPillTextActive:    { color: '#14532d' },
+  sectionHeader:       { marginHorizontal: 16, marginBottom: 12 },
+  sectionTitle:        { fontSize: 16, fontWeight: '700', color: '#1f2937' },
 
   // List
   listContent:          { paddingHorizontal: 16, paddingBottom: 24, gap: 10 },
@@ -258,31 +302,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingVertical: 14,
   },
-  txLeft:               { flex: 1 },
-  txOrderLabel:         { fontSize: 12, color: '#9ca3af', marginBottom: 2 },
-  txOrderId:            { fontSize: 13, fontWeight: '600', color: '#1f2937' },
-  txRight:              { flexDirection: 'row', alignItems: 'center', gap: 6 },
+  txLeft:               { flex: 1, gap: 2 },
+  txOrderLabel:         { fontSize: 11, color: '#9ca3af', marginTop: 1 },
+  txOrderSub:           { fontSize: 12, color: '#4b5563', fontWeight: '500' },
+  txOrderId:            { fontSize: 14, fontWeight: '700', color: '#1f2937' },
+  txRight:              { flexDirection: 'row', alignItems: 'center', gap: 8 },
   txPoints:             { fontSize: 14, fontWeight: '700', color: '#374151' },
-
-  // Redeem card
-  rewardCard:           {
-    backgroundColor: '#fff',
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#e5e7eb',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  rewardRow:            { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  rewardInfo:           { flex: 1 },
-  rewardName:           { fontSize: 14, fontWeight: '600', color: '#111827' },
-  rewardDesc:           { marginTop: 2, fontSize: 12, color: '#6b7280' },
-  redeemBtn:            { marginLeft: 12, flexDirection: 'row', alignItems: 'center', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 8 },
-  redeemBtnActive:      { backgroundColor: '#16a34a' },
-  redeemBtnDisabled:    { backgroundColor: '#e5e7eb' },
-  redeemBtnText:        { fontSize: 12, fontWeight: '600' },
-  redeemBtnTextActive:  { color: '#fff' },
-  redeemBtnTextDisabled:{ color: '#9ca3af' },
+  earnedBadge:          { fontSize: 9, fontWeight: '800', color: '#166534', backgroundColor: '#dcfce7', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4 },
+  usedBadge:            { color: '#991b1b', backgroundColor: '#fee2e2' },
 
   // Empty
   empty:                { marginTop: 80, alignItems: 'center' },
