@@ -153,7 +153,7 @@ export default function ForgotPasswordScreen() {
                   style={styles.input}
                   value={identifier}
                   onChangeText={setIdentifier}
-                  placeholder="you@example.com or 10-digit number"
+                  placeholder="Email or 10-digit mobile no."
                   placeholderTextColor="rgba(60,80,60,0.6)"
                   keyboardType="email-address"
                   autoCapitalize="none"
