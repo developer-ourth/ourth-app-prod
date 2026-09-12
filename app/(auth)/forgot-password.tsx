@@ -61,9 +61,9 @@ export default function ForgotPasswordScreen() {
       try {
         await api.post('/auth/otp/send-email', { email: trimmed.toLowerCase() });
         setStep('verify');
-        Alert.alert('OTP Sent', `A 6-digit OTP has been sent to ${trimmed}.`);
+        Alert.alert('OTP Sent', `A 6-digit OTP has been sent to ${trimmed}. Please check your email inbox.`);
       } catch (err: any) {
-        Alert.alert('Error', err?.response?.data?.message || err.message || 'Could not send OTP to email.');
+        Alert.alert('Send Failed', err?.response?.data?.message || err.message || 'Could not send OTP to email. Please verify your email or try using your 10-digit mobile number.');
       } finally {
         setLoading(false);
       }
@@ -105,37 +105,19 @@ export default function ForgotPasswordScreen() {
     const identifierVal = targetType === 'phone' ? identifier.replace(/\D/g, '') : identifier.trim().toLowerCase();
 
     try {
-      // 1. Verify OTP first via standard /auth/otp/verify
-      await api.post('/auth/otp/verify', {
+      // Call reset-password-otp which verifies OTP AND resets password atomically
+      await api.post('/auth/reset-password-otp', {
         identifier: identifierVal,
-        otp: trimmedOtp,
         type: targetType,
+        otp: trimmedOtp,
+        password: newPassword,
       });
 
-      // 2. Call reset password endpoint if available
-      try {
-        await api.post('/auth/reset-password-otp', {
-          identifier: identifierVal,
-          type: targetType,
-          otp: trimmedOtp,
-          password: newPassword,
-        });
-
-        Alert.alert('Success', 'Your password has been reset successfully!', [
-          { text: 'Back to Sign In', onPress: () => router.back() },
-        ]);
-      } catch (err: any) {
-        const is404 = err?.response?.status === 404 || err?.message?.includes('404') || err?.response?.data?.message?.includes('could not be found');
-        if (is404) {
-          Alert.alert('OTP Verified', 'Your OTP code has been verified successfully! Please sign in to your account.', [
-            { text: 'Back to Sign In', onPress: () => router.back() },
-          ]);
-        } else {
-          Alert.alert('Reset Failed', err?.response?.data?.message || err?.message || 'Password update failed.');
-        }
-      }
+      Alert.alert('Success', 'Your password has been reset successfully!', [
+        { text: 'Back to Sign In', onPress: () => router.back() },
+      ]);
     } catch (err: any) {
-      Alert.alert('Verification Failed', err?.response?.data?.message || err?.message || 'Invalid or expired OTP code.');
+      Alert.alert('Reset Failed', err?.response?.data?.message || err?.message || 'Password reset failed. Please check your OTP and try again.');
     } finally {
       setLoading(false);
     }
@@ -200,7 +182,14 @@ export default function ForgotPasswordScreen() {
               </Text>
 
               <View style={styles.fieldWrap}>
-                <Text style={styles.label}>Enter 6-Digit OTP</Text>
+                <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <Text style={styles.label}>Enter 6-Digit OTP</Text>
+                  <TouchableOpacity onPress={handleSendOtp} disabled={loading}>
+                    <Text style={{ fontSize: 13 * SX, fontWeight: '700', color: '#0D3A27', paddingRight: 4 * SX }}>
+                      Resend OTP
+                    </Text>
+                  </TouchableOpacity>
+                </View>
                 <TextInput
                   style={styles.input}
                   value={otp}
