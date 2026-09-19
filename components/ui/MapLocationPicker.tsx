@@ -193,15 +193,35 @@ export default function MapLocationPicker({
     }
   };
 
-  // Search location
+  // Search location via Native Geocoder (Apple/Google) with Nominatim fallback
   const handleSearch = async () => {
-    if (!searchQuery.trim()) return;
+    const query = searchQuery.trim();
+    if (!query) return;
     setSearching(true);
+
+    try {
+      // 1. Primary: Native Apple / Google Geocoder (Instant, high accuracy, handles Indian localities/pincodes)
+      const geocoded = await Location.geocodeAsync(query);
+      if (geocoded && geocoded.length > 0) {
+        const newLat = geocoded[0].latitude;
+        const newLng = geocoded[0].longitude;
+        setLat(newLat);
+        setLng(newLng);
+        updateMapCenter(newLat, newLng);
+        await reverseGeocode(newLat, newLng);
+        setSearching(false);
+        return;
+      }
+    } catch (e) {
+      console.log('Native geocode search error, trying Nominatim fallback:', e);
+    }
+
+    // 2. Fallback: OpenStreetMap Nominatim Search API
     try {
       const res = await fetch(
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-          searchQuery
-        )}&countrycodes=in&limit=1`,
+          query
+        )}&countrycodes=in&limit=5`,
         {
           headers: { 'User-Agent': 'OurthApp/1.0' },
         }
@@ -214,12 +234,12 @@ export default function MapLocationPicker({
         setLat(newLat);
         setLng(newLng);
         updateMapCenter(newLat, newLng);
-        reverseGeocode(newLat, newLng);
+        await reverseGeocode(newLat, newLng);
       } else {
-        Alert.alert('Not Found', 'No location found for this search.');
+        Alert.alert('Location Not Found', `No results found for "${query}". Please try searching by area name, city, landmark, or pincode.`);
       }
     } catch {
-      Alert.alert('Search Error', 'Failed to search location.');
+      Alert.alert('Search Error', 'Failed to search location. Please check your network connection.');
     } finally {
       setSearching(false);
     }
