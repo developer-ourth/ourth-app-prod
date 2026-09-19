@@ -14,12 +14,7 @@ const fs = require('fs');
  *
  * FIX:
  *   Set ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES in the Xcode build settings
- *   for all pod targets. This must be done inside the EXISTING post_install block so that
- *   react_native_post_install() still runs (CocoaPods only supports ONE post_install block).
- *
- * INSERTION STRATEGY:
- *   Find the last `\nend` in the Podfile (which closes the post_install block) and insert
- *   our build settings code right before it.
+ *   for all pod targets inside the existing post_install do |installer| block.
  */
 module.exports = function withFirebaseiOSFix(config) {
   return withDangerousMod(config, [
@@ -45,30 +40,26 @@ module.exports = function withFirebaseiOSFix(config) {
       }
 
       const fix = `
-  # ${tag}
-  # Allow Firebase Obj-C bridge to include non-modular React-Core headers
-  # when all pods are built as static frameworks (required for Firebase Swift pods).
-  installer.pods_project.targets.each do |target|
-    target.build_configurations.each do |build_config|
-      build_config.build_settings['ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+    # ${tag}
+    # Allow Firebase Obj-C bridge to include non-modular React-Core headers
+    # when all pods are built as static frameworks (required for Firebase Swift pods).
+    installer.pods_project.targets.each do |target|
+      target.build_configurations.each do |build_config|
+        build_config.build_settings['ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES'] = 'YES'
+      end
     end
-  end
 `;
 
-      // Insert our fix INSIDE the existing post_install block, just before its closing 'end'.
-      // We find the last occurrence of '\nend' in the file (which closes post_install).
-      // CocoaPods only supports ONE post_install block — we must not add another.
-      const lastEndMatch = contents.match(/\nend(\s*)$/);
-      if (lastEndMatch) {
-        const insertAt = contents.lastIndexOf('\nend' + lastEndMatch[1]);
-        contents =
-          contents.slice(0, insertAt) +
-          fix +
-          contents.slice(insertAt);
+      // Insert right inside post_install do |installer|
+      if (contents.includes('post_install do |installer|')) {
+        contents = contents.replace(
+          'post_install do |installer|',
+          'post_install do |installer|' + fix
+        );
         fs.writeFileSync(podfilePath, contents);
-        console.log('[withFirebaseiOSFix] Successfully patched Podfile post_install block.');
+        console.log('[withFirebaseiOSFix] Successfully inserted fix into post_install do |installer| block.');
       } else {
-        console.warn('[withFirebaseiOSFix] Could not find post_install closing end in Podfile.');
+        console.warn('[withFirebaseiOSFix] Could not find "post_install do |installer|" in Podfile.');
       }
 
       return config;
