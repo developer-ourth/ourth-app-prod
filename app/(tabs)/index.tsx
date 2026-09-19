@@ -351,7 +351,7 @@ export default function HomeScreen() {
         {/* Unified Top Section Wrapper - Absolutely Positioned */}
         <Animated.View style={[styles.topSectionContainer, { top: insets.top, transform: [{ translateY: headerTranslateY }] }]}>
           {/* Glassmorphism Header */}
-          <View style={[styles.glassHeader, !USE_NATIVE_BLUR && { backgroundColor: headerBackgroundColor }]}>
+          <View style={[styles.glassHeader, { backgroundColor: headerBackgroundColor }]}>
             {USE_NATIVE_BLUR && <BlurView intensity={75} tint="dark" style={StyleSheet.absoluteFill} />}
           {/* Header */}
           <View style={styles.header}>
@@ -563,7 +563,6 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   glassHeader: {
-    backgroundColor: 'rgba(13,58,39,0.5)',
     overflow: 'hidden',
     zIndex: 2,
     elevation: 2,
