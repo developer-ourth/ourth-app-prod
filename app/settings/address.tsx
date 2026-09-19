@@ -20,6 +20,7 @@ import { useRouter } from 'expo-router';
 import { ChevronLeft, ChevronRight, ArrowUp } from '@/components/icons';
 import { addressAPI, type AddressPayload } from '@/lib/api';
 import LocationPickerModal from '@/components/ui/LocationPickerModal';
+import MapLocationPicker, { type LocationResult } from '@/components/ui/MapLocationPicker';
 import { INDIA_STATES, getCitiesForState } from '@/lib/indiaLocations';
 
 // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -61,6 +62,18 @@ export default function AddressBookScreen() {
   const [saving, setSaving] = useState(false);
   const [showStatePicker, setShowStatePicker] = useState(false);
   const [showCityPicker,  setShowCityPicker]  = useState(false);
+  const [showMapPicker,   setShowMapPicker]   = useState(false);
+
+  const handleMapLocationSelect = (loc: LocationResult) => {
+    setForm((f) => ({
+      ...f,
+      address_line1: loc.addressLine || f.address_line1 || loc.displayName.split(',')[0],
+      address_line2: loc.displayName ? `GPS: ${loc.latitude.toFixed(5)}, ${loc.longitude.toFixed(5)} (${loc.displayName.slice(0, 40)}...)` : f.address_line2,
+      city: loc.city || f.city,
+      state: loc.state || f.state,
+      postal_code: loc.postalCode || f.postal_code,
+    }));
+  };
 
   const fetchLocationFromPincode = async (pincode: string) => {
     // Local offline prefix fallback (e.g. for Gautam Buddha Nagar/Noida 2013xx and Delhi 11xxxx)
@@ -290,6 +303,15 @@ export default function AddressBookScreen() {
             <Text style={styles.modalTitle}>{editingId ? 'Edit Address' : 'Add Address'}</Text>
 
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+              {/* Map location tracker button */}
+              <TouchableOpacity
+                style={styles.mapPinButton}
+                onPress={() => setShowMapPicker(true)}
+                activeOpacity={0.8}
+              >
+                <Text style={styles.mapPinButtonText}>📍 Pin Location on Map / Use GPS</Text>
+              </TouchableOpacity>
+
               {(
                 [
                   { key: 'name', label: 'Name / Label *', placeholder: "e.g. Raju's Shop" },
@@ -397,10 +419,17 @@ export default function AddressBookScreen() {
           onSelect={(val) => { setForm((f) => ({ ...f, city: val })); setShowCityPicker(false); }}
           onClose={() => setShowCityPicker(false)}
         />
+
+        <MapLocationPicker
+          visible={showMapPicker}
+          onClose={() => setShowMapPicker(false)}
+          onSelectLocation={handleMapLocationSelect}
+        />
       </Modal>
     </ImageBackground>
   );
 }
+
 
 const styles = StyleSheet.create({
   screen: { flex: 1 },
