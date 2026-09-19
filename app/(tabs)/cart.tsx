@@ -808,8 +808,9 @@ export default function CartScreen() {
                     paddingHorizontal: 28,
                     paddingVertical: 14,
                     alignItems: 'center',
-                    justify: 'center',
+                    justifyContent: 'center',
                     elevation: 3,
+
                   }}
                   onPress={handleCheckout}
                 >

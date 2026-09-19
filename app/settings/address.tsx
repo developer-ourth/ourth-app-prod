@@ -583,4 +583,21 @@ const styles = StyleSheet.create({
   },
   pickerBtnText: { fontSize: 14, color: '#111827' },
   pickerBtnPlaceholder: { color: '#9ca3af' },
+  mapPinButton: {
+    backgroundColor: 'rgba(74, 155, 95, 0.1)',
+    borderWidth: 1.5,
+    borderColor: '#4A9B5F',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  mapPinButtonText: {
+    color: '#4A9B5F',
+    fontWeight: '700',
+    fontSize: 14,
+  },
 });
+

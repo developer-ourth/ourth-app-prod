@@ -179,7 +179,9 @@ export type OrderPayload = {
   order_type?: 'b2c' | 'b2b';
   buyer_gstin?: string;
   use_green_points?: boolean;
+  source?: string;
 };
+
 
 export const greenPointsAPI = {
   get: () => api.get<{ success: boolean; data: { green_points: number; rupee_value: number; cashback_rate: string } }>('/me/green-points'),

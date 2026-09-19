@@ -122,6 +122,7 @@ export interface Cart {
   discount_amount?: string;
   coupon_id?: number | null;
   coupon?: Coupon | null;
+  agent_code?: string | null;
   items: CartItem[];
   vendor?: Pick<Vendor, 'id' | 'business_name' | 'logo_url' | 'city'>;
 }
@@ -154,6 +155,7 @@ export interface Order {
   created_at: string;
   delivered_at: string | null;
   cancelled_at: string | null;
+  cancellation_reason?: string | null;
   items?: OrderItem[];
   items_count?: number;
   green_points_used?: number;
@@ -161,6 +163,7 @@ export interface Order {
   use_green_points?: boolean;
   vendor?: Pick<Vendor, 'id' | 'business_name' | 'logo_url' | 'city'>;
 }
+
 
 // ─── Subscription ────────────────────────────────────────────────────────────
 
