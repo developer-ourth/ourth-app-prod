@@ -17,7 +17,8 @@ import { ChevronLeft } from '@/components/icons';
 export type LocationResult = {
   latitude: number;
   longitude: number;
-  addressLine: string;
+  addressLine1: string;
+  addressLine2: string;
   city: string;
   state: string;
   postalCode: string;
@@ -52,13 +53,15 @@ export default function MapLocationPicker({
 
   const [addressData, setAddressData] = useState<{
     displayName: string;
-    road: string;
+    line1: string;
+    line2: string;
     city: string;
     state: string;
     postcode: string;
   }>({
     displayName: 'Locating address…',
-    road: '',
+    line1: '',
+    line2: '',
     city: '',
     state: '',
     postcode: '',
@@ -66,47 +69,87 @@ export default function MapLocationPicker({
 
   const webViewRef = useRef<WebView>(null);
 
-  // Reverse Geocoding via Nominatim
+  // Native High-Precision Reverse Geocoding via expo-location (Apple Maps on iOS, Google Services on Android)
   const reverseGeocode = async (latitude: number, longitude: number) => {
     setAddressLoading(true);
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
-        {
-          headers: {
-            'User-Agent': 'OurthApp/1.0',
-          },
-        }
-      );
-      const data = await res.json();
-      if (data && data.address) {
-        const addr = data.address;
-        const road = addr.road || addr.suburb || addr.neighbourhood || addr.residential || '';
-        const city = addr.city || addr.town || addr.village || addr.county || addr.state_district || '';
-        const state = addr.state || '';
-        const postcode = addr.postcode || '';
-        const displayName = data.display_name || [road, city, state, postcode].filter(Boolean).join(', ');
+      // 1. Try Native Apple/Google Geocoder first for highest accuracy in India
+      const nativeResults = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      if (nativeResults && nativeResults.length > 0) {
+        const item = nativeResults[0];
+
+        // Format Line 1: House/Building Name/Number + Street Name
+        const streetDetails = [item.streetNumber, item.street, item.name]
+          .filter((v, i, self) => Boolean(v) && self.indexOf(v) === i && !v?.includes('+'))
+          .join(', ');
+
+        // Format Line 2: Subregion / Colony / Area / Landmark
+        const areaDetails = [item.subregion, item.district]
+          .filter((v, i, self) => Boolean(v) && self.indexOf(v) === i && v !== item.city && v !== item.region)
+          .join(', ');
+
+        const line1 = streetDetails || item.name || item.street || item.subregion || item.city || '';
+        const line2 = areaDetails || item.district || item.subregion || '';
+        const city = item.city || item.subregion || item.region || '';
+        const state = item.region || '';
+        const postcode = item.postalCode || '';
+
+        const fullDisplay = (item as any).formattedAddress ||
+          [line1, line2, city, state, postcode].filter(Boolean).join(', ');
 
         setAddressData({
-          displayName,
-          road,
+          displayName: fullDisplay,
+          line1,
+          line2,
           city,
           state,
           postcode,
         });
-      } else {
+        setAddressLoading(false);
+        return;
+      }
+    } catch (e) {
+      console.log('Native reverse geocode warning, falling back to Nominatim API:', e);
+    }
+
+    // 2. Fallback to OpenStreetMap Nominatim API if native geocode is unavailable
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}&addressdetails=1`,
+        { headers: { 'User-Agent': 'OurthApp/1.0' } }
+      );
+      const data = await res.json();
+      if (data && data.address) {
+        const addr = data.address;
+        const line1 = [addr.house_number, addr.building, addr.road, addr.pedestrian]
+          .filter(Boolean)
+          .join(', ') || addr.suburb || addr.neighbourhood || addr.residential || '';
+        const line2 = [addr.suburb, addr.neighbourhood, addr.residential, addr.commercial]
+          .filter((v, i, self) => Boolean(v) && self.indexOf(v) === i && v !== line1)
+          .join(', ');
+        const city = addr.city || addr.town || addr.village || addr.county || addr.state_district || '';
+        const state = addr.state || '';
+        const postcode = addr.postcode || '';
+        const displayName = data.display_name || [line1, line2, city, state, postcode].filter(Boolean).join(', ');
+
         setAddressData({
-          displayName: `Lat: ${latitude.toFixed(5)}, Lng: ${longitude.toFixed(5)}`,
-          road: '',
-          city: '',
-          state: '',
-          postcode: '',
+          displayName,
+          line1,
+          line2,
+          city,
+          state,
+          postcode,
         });
       }
     } catch {
       setAddressData({
-        displayName: `Lat: ${latitude.toFixed(5)}, Lng: ${longitude.toFixed(5)}`,
-        road: '',
+        displayName: `${latitude.toFixed(5)}, ${longitude.toFixed(5)}`,
+        line1: '',
+        line2: '',
         city: '',
         state: '',
         postcode: '',
@@ -135,7 +178,7 @@ export default function MapLocationPicker({
         return;
       }
       const loc = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.High,
+        accuracy: Location.Accuracy.Highest,
       });
       const newLat = loc.coords.latitude;
       const newLng = loc.coords.longitude;
@@ -184,7 +227,7 @@ export default function MapLocationPicker({
 
   const updateMapCenter = (latitude: number, longitude: number) => {
     if (webViewRef.current) {
-      const script = `if (window.map) { window.map.setView([${latitude}, ${longitude}], 16); } true;`;
+      const script = `if (window.map) { window.map.setView([${latitude}, ${longitude}], 17); } true;`;
       webViewRef.current.injectJavaScript(script);
     }
   };
@@ -193,7 +236,8 @@ export default function MapLocationPicker({
     onSelectLocation({
       latitude: lat,
       longitude: lng,
-      addressLine: addressData.road || addressData.displayName.split(',')[0] || '',
+      addressLine1: addressData.line1 || addressData.displayName.split(',')[0] || '',
+      addressLine2: addressData.line2 || (addressData.displayName.split(',')[1] ?? '').trim(),
       city: addressData.city,
       state: addressData.state,
       postalCode: addressData.postcode,
@@ -245,7 +289,7 @@ export default function MapLocationPicker({
           </svg>
         </div>
         <script>
-          var map = L.map('map', { zoomControl: false }).setView([${lat}, ${lng}], 16);
+          var map = L.map('map', { zoomControl: false }).setView([${lat}, ${lng}], 17);
           L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
             maxZoom: 19,
             attribution: '© OpenStreetMap'
@@ -343,7 +387,7 @@ export default function MapLocationPicker({
           {addressLoading ? (
             <View style={styles.addressLoadingRow}>
               <ActivityIndicator size="small" color="#4A9B5F" />
-              <Text style={styles.addressLoadingText}>Updating address from pin…</Text>
+              <Text style={styles.addressLoadingText}>Detecting exact street & landmark…</Text>
             </View>
           ) : (
             <View style={{ gap: 4 }}>
@@ -351,7 +395,7 @@ export default function MapLocationPicker({
                 {addressData.displayName}
               </Text>
               <Text style={styles.coordsText}>
-                Lat: {lat.toFixed(6)}, Lng: {lng.toFixed(6)}
+                Coordinates: {lat.toFixed(6)}, {lng.toFixed(6)}
               </Text>
             </View>
           )}

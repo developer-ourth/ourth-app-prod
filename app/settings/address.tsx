@@ -67,13 +67,14 @@ export default function AddressBookScreen() {
   const handleMapLocationSelect = (loc: LocationResult) => {
     setForm((f) => ({
       ...f,
-      address_line1: loc.addressLine || f.address_line1 || loc.displayName.split(',')[0],
-      address_line2: loc.displayName ? `GPS: ${loc.latitude.toFixed(5)}, ${loc.longitude.toFixed(5)} (${loc.displayName.slice(0, 40)}...)` : f.address_line2,
+      address_line1: loc.addressLine1 || f.address_line1 || loc.displayName.split(',')[0],
+      address_line2: loc.addressLine2 || f.address_line2 || (loc.displayName.split(',')[1] ?? '').trim(),
       city: loc.city || f.city,
       state: loc.state || f.state,
       postal_code: loc.postalCode || f.postal_code,
     }));
   };
+
 
   const fetchLocationFromPincode = async (pincode: string) => {
     // Local offline prefix fallback (e.g. for Gautam Buddha Nagar/Noida 2013xx and Delhi 11xxxx)
