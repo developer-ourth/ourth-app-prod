@@ -6,11 +6,11 @@
     "scheme": "ourth",
     "version": "1.0.2",
     "orientation": "default",
-    "icon": "./assets/logof.png",
+    "icon": "./assets/logof_square.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/logof.png",
+      "image": "./assets/logof_square.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -20,28 +20,17 @@
       "googleServicesFile": "./GoogleService-Info.plist",
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false
-      },
-      "config": {
-        "googleMapsApiKey": "YOUR_IOS_GOOGLE_MAPS_API_KEY"
       }
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/logof.png",
+        "foregroundImage": "./assets/logof_square.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "enableProguardInReleaseBuilds": true,
-      "enableShrinkResourcesInReleaseBuilds": true,
-      "supportsTablet": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.ourth.mobile",
-      "googleServicesFile": "./google-services.json",
-      "config": {
-        "googleMaps": {
-          "apiKey": "YOUR_ANDROID_GOOGLE_MAPS_API_KEY"
-        }
-      }
+      "googleServicesFile": "./google-services.json"
     },
     "web": {
       "favicon": "./assets/favicon.png"
@@ -55,12 +44,25 @@
       [
         "expo-notifications",
         {
-          "icon": "./assets/logof.png",
+          "icon": "./assets/logof_square.png",
           "color": "#1a6b5a",
           "sounds": []
         }
       ],
-      "@sentry/react-native"
+      "@sentry/react-native",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "extraPods": [
+              { "name": "GoogleUtilities", "modular_headers": true },
+              { "name": "FirebaseAuthInterop", "modular_headers": true },
+              { "name": "FirebaseAppCheckInterop", "modular_headers": true },
+              { "name": "RecaptchaInterop", "modular_headers": true }
+            ]
+          }
+        }
+      ]
     ],
     "extra": {
       "router": {},
