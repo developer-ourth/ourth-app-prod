@@ -120,7 +120,7 @@ export default function GeneralInfoScreen() {
             </TouchableOpacity>
             <TouchableOpacity
               style={[styles.linkRow, { borderBottomWidth: 0 }]}
-              onPress={() => openLink('https://instagram.com/healingourth.com', 'Instagram not available.')}
+              onPress={() => openLink('https://www.instagram.com/healingourth/', 'Instagram not available.')}
               activeOpacity={0.7}
             >
               <Text style={styles.linkLabel}>Follow us on Instagram</Text>
