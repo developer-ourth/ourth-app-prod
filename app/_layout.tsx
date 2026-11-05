@@ -7,6 +7,7 @@ import * as Sentry from '@sentry/react-native';
 import { useAuthStore } from '@/lib/store';
 import { registerForPushNotifications, isExpoGo } from '@/lib/pushNotifications';
 import ThemedAlertHost from '@/components/ui/ThemedAlertHost';
+import OtaUpdateBanner from '@/components/OtaUpdateBanner';
 import Toast from 'react-native-toast-message';
 import { useState } from 'react';
 import { View, Text } from 'react-native';
@@ -104,6 +105,7 @@ function RootLayout() {
         <Stack.Screen name="settings/payment-methods" options={{ presentation: 'card' }} />
         <Stack.Screen name="settings/tax-settings" options={{ presentation: 'card' }} />
       </Stack>
+      <OtaUpdateBanner />
       <ThemedAlertHost />
       <Toast />
     </>
