@@ -96,8 +96,9 @@ export default function RegisterScreen() {
       return;
     }
 
-    if (!cleanedMobile || cleanedMobile.length !== 10) {
-      Alert.alert('Invalid Mobile Number', 'Please enter a valid 10-digit mobile number.');
+    // Optional (App Store guideline 5.1.1(v)); only checked when entered
+    if (cleanedMobile && cleanedMobile.length !== 10) {
+      Alert.alert('Invalid Mobile Number', 'Please enter a valid 10-digit mobile number, or leave it empty.');
       return;
     }
 
@@ -155,7 +156,7 @@ export default function RegisterScreen() {
         }>('/vendors/register', {
           name:          trimmedName,
           email:         trimmedEmail ? trimmedEmail.toLowerCase() : undefined,
-          phone:         cleanedMobile,
+          phone:         cleanedMobile || undefined,
           password,
           business_name: businessName.trim(),
           gstin:         gst.trim().toUpperCase() || undefined,
@@ -182,8 +183,8 @@ export default function RegisterScreen() {
           data: { token: string; user: any };
         }>('/auth/register', {
           name: trimmedName,
-          email: trimmedEmail ? trimmedEmail.toLowerCase() : `${cleanedMobile}@ourth.com`,
-          phone: cleanedMobile,
+          email: trimmedEmail.toLowerCase(),
+          phone: cleanedMobile || undefined,
           password,
           password_confirmation: password,
           role: 'consumer',
@@ -290,12 +291,12 @@ export default function RegisterScreen() {
             </>
           )}
 
-          <Field label="Mobile Number">
+          <Field label="Mobile Number (optional)">
             <TextInput
               style={styles.input}
               value={mobile}
               onChangeText={(t) => setMobile(t.replace(/\D/g, '').slice(0, 10))}
-              placeholder="9876543210"
+              placeholder="For order updates (optional)"
               placeholderTextColor="rgba(60,80,60,0.6)"
               keyboardType="phone-pad"
               maxLength={10}

@@ -92,6 +92,19 @@ export default function PaymentScreen() {
       return;
     }
 
+    // A contact number is asked for only here, where it is needed: the courier calls before delivery
+    if (!/^\d{10}$/.test((selectedAddress.mobile ?? '').trim())) {
+      Alert.alert(
+        'Delivery Contact Needed',
+        'Our delivery partner needs a 10-digit mobile number to reach you for this delivery. Please add one to this address.',
+        [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Edit Address', onPress: () => router.push('/settings/address') },
+        ],
+      );
+      return;
+    }
+
     const isCod = selectedPayment === 'cod';
     const isRazorpayModuleReady = typeof (RazorpayCheckout as { open?: unknown })?.open === 'function';
 
